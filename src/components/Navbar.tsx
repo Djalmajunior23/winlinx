@@ -11,7 +11,9 @@ import {
   Cpu,
   ShieldAlert,
   Layers,
-  Activity
+  Activity,
+  Lock,
+  Network
 } from 'lucide-react';
 
 export type ActiveTab = 
@@ -19,6 +21,9 @@ export type ActiveTab =
   | 'modules' 
   | 'processes'
   | 'anatomy'
+  | 'memory'
+  | 'registry'
+  | 'firewall'
   | 'dual-lab' 
   | 'comparator' 
   | 'labs' 
@@ -62,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   WinLinx
                 </span>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/60 font-mono font-semibold">
-                  PRO
+                  ULTIMATE
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 hidden sm:block">
@@ -72,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Navegação Principal */}
-          <nav className="hidden xl:flex items-center space-x-1">
+          <nav className="hidden 2xl:flex items-center space-x-1">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -93,19 +98,43 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
-              <span>Processos do SO</span>
+              <span>Processos</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('anatomy')}
+              onClick={() => setActiveTab('memory')}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'anatomy'
+                activeTab === 'memory'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Anatomia & Recursos</span>
+              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Memória (ASLR/DEP)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('registry')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'registry'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5 text-blue-400" />
+              <span>Registro Windows</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('firewall')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'firewall'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Network className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Firewall Host</span>
             </button>
 
             <button
@@ -117,7 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Terminal className="w-3.5 h-3.5" />
-              <span>Labs Práticos</span>
+              <span>Labs</span>
             </button>
 
             <button

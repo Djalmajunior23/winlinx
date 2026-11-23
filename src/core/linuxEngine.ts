@@ -11,6 +11,15 @@ export class LinuxSimulatorEngine {
     SHELL: '/bin/bash',
     TERM: 'xterm-256color'
   };
+  private firewallBlockedPorts: number[] = [];
+  private firewallActive: boolean = true;
+
+  public getFirewallStatus() {
+    return {
+      active: this.firewallActive,
+      blockedPorts: [...this.firewallBlockedPorts]
+    };
+  }
 
   private processes: OSProcess[] = [
     { 
@@ -678,7 +687,7 @@ flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
 
       case 'ss':
       case 'netstat': {
-        const hasMalicious = this.processes.some(p => p.pid === 1337);
+        const hasMalicious = this.processes.some(p => p.pid === 1337) && !this.firewallBlockedPorts.includes(4444);
         const lines = [
           'Netid State      Recv-Q Send-Q   Local Address:Port    Peer Address:Port Process',
           'tcp   LISTEN     0      128            0.0.0.0:22           0.0.0.0:*     users:(("sshd",pid=412,fd=3))',
@@ -688,6 +697,74 @@ flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
           lines.push('tcp   ESTAB      0      0       192.168.1.15:4444     203.0.113.80:55210 users:(("kworker_rev",pid=1337,fd=4))');
         }
         return { output: lines.join('\n'), exitCode: 0 };
+      }
+
+      case 'ufw': {
+        const sub = args[0]?.toLowerCase();
+        if (sub === 'status') {
+          return {
+            output: `Status: ${this.firewallActive ? 'active' : 'inactive'}
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW       Anywhere
+80/tcp                     ALLOW       Anywhere
+${this.firewallBlockedPorts.map(p => `${p}/tcp                     DENY        Anywhere`).join('\n')}`,
+            exitCode: 0
+          };
+        }
+        if (sub === 'deny' || sub === 'reject') {
+          const port = parseInt(args[1], 10);
+          if (isNaN(port)) return { output: 'ufw: informe a porta a ser bloqueada. Ex: ufw deny 4444', exitCode: 1 };
+          if (!this.firewallBlockedPorts.includes(port)) {
+            this.firewallBlockedPorts.push(port);
+          }
+          syscalls.push({
+            id: Math.random().toString(),
+            timestamp: new Date().toLocaleTimeString(),
+            os: 'linux',
+            syscall: `setsockopt(fd, SOL_NETFILTER, SO_SET_REPLACE)`,
+            subsystem: 'Network',
+            parameters: `Netfilter rule: DROP TCP port ${port}`,
+            returnCode: 0,
+            ringLevel: 'Ring 0 (Kernel Mode)',
+            explanation: 'O subsistema Netfilter do Kernel Linux insere regra de DROP na tabela filter chain INPUT.'
+          });
+
+          return {
+            output: `Regra adicionada\nRegra adicionada (v6)\n[DEFESA] Porta ${port} bloqueada no Netfilter/UFW! Tráfego de entrada e saída descartado.`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: port === 4444 ? 'FLAG{WINLINX_LINUX_FIREWALL_NETFILTER_BLOCKED_4444}' : undefined
+            }
+          };
+        }
+        return { output: 'Uso: ufw status | ufw deny <porta> | ufw allow <porta>', exitCode: 0 };
+      }
+
+      case 'iptables': {
+        if (cmdLine.includes('-A') && (cmdLine.includes('DROP') || cmdLine.includes('REJECT'))) {
+          const matchPort = cmdLine.match(/--dport\s+(\d+)/);
+          const port = matchPort ? parseInt(matchPort[1], 10) : 4444;
+          if (!this.firewallBlockedPorts.includes(port)) {
+            this.firewallBlockedPorts.push(port);
+          }
+          return {
+            output: `[iptables] Regra inserida na chain INPUT: DROP porta ${port}. Conexão mitigada no nível do Kernel!`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: port === 4444 ? 'FLAG{WINLINX_LINUX_FIREWALL_NETFILTER_BLOCKED_4444}' : undefined
+            }
+          };
+        }
+        return {
+          output: `Chain INPUT (policy ACCEPT 142 packets, 11KB)
+target     prot opt source               destination
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:22
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80
+${this.firewallBlockedPorts.map(p => `DROP       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:${p}`).join('\n')}`,
+          exitCode: 0
+        };
       }
 
       case 'find': {

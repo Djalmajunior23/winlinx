@@ -9,6 +9,9 @@ import { SyscallTracerView } from './components/SyscallTracerView';
 import { EDRTelemetryView } from './components/EDRTelemetryView';
 import { ProcessArchitectureExplorer } from './components/ProcessArchitectureExplorer';
 import { OSResourceAnatomyView } from './components/OSResourceAnatomyView';
+import { VirtualMemoryInspector } from './components/VirtualMemoryInspector';
+import { RegistryViewer } from './components/RegistryViewer';
+import { HostFirewallSimulator } from './components/HostFirewallSimulator';
 import { CertificateModal } from './components/CertificateModal';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert } from './types/simulator';
@@ -180,6 +183,23 @@ export function App() {
           <OSResourceAnatomyView />
         )}
 
+        {activeTab === 'memory' && (
+          <VirtualMemoryInspector />
+        )}
+
+        {activeTab === 'registry' && (
+          <RegistryViewer
+            registryData={windowsEngine.getRegistrySnapshot()}
+          />
+        )}
+
+        {activeTab === 'firewall' && (
+          <HostFirewallSimulator
+            linuxBlockedPorts={linuxEngine.getFirewallStatus().blockedPorts}
+            windowsBlockedPorts={windowsEngine.getFirewallStatus().blockedPorts}
+          />
+        )}
+
         {activeTab === 'labs' && (
           <LabRunnerView
             activeLabId={activeLabId}
@@ -242,16 +262,22 @@ export function App() {
               Processos do SO
             </button>
             <button
-              onClick={() => setActiveTab('anatomy')}
+              onClick={() => setActiveTab('memory')}
               className="hover:text-slate-300 transition"
             >
-              Anatomia de Recursos
+              Memória (ASLR/DEP)
             </button>
             <button
-              onClick={() => setActiveTab('syscalls')}
+              onClick={() => setActiveTab('registry')}
               className="hover:text-slate-300 transition"
             >
-              Syscalls (Ring 0)
+              Registro Windows
+            </button>
+            <button
+              onClick={() => setActiveTab('firewall')}
+              className="hover:text-slate-300 transition"
+            >
+              Firewall de Host
             </button>
             <button
               onClick={() => setIsCertificateOpen(true)}

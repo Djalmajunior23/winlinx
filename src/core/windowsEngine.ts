@@ -12,6 +12,35 @@ export class WindowsSimulatorEngine {
     PSModulePath: 'C:\\Program Files\\WindowsPowerShell\\Modules;C:\\Windows\\system32\\WindowsPowerShell\\v1.0\\Modules'
   };
 
+  private registryData: Record<string, Record<string, { type: string; value: string | number }>> = {
+    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run': {
+      'SecurityTelemetry': { type: 'REG_SZ', value: 'C:\\Windows\\System32\\telemetry.exe' },
+      'EdgeUpdate': { type: 'REG_SZ', value: 'C:\\Program Files\\Microsoft\\Edge\\edgeupdate.exe' }
+    },
+    'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa': {
+      'RunAsPPL': { type: 'REG_DWORD', value: 0 },
+      'AuditBaseDirectories': { type: 'REG_DWORD', value: 1 }
+    },
+    'HKLM\\SYSTEM\\CurrentControlSet\\Services\\WinVulnerableUpdater': {
+      'ImagePath': { type: 'REG_EXPAND_SZ', value: 'C:\\Program Files\\Custom App\\service.exe' },
+      'Start': { type: 'REG_DWORD', value: 2 },
+      'Type': { type: 'REG_DWORD', value: 16 }
+    }
+  };
+
+  private firewallBlockedPorts: number[] = [];
+
+  public getRegistrySnapshot() {
+    return JSON.parse(JSON.stringify(this.registryData));
+  }
+
+  public getFirewallStatus() {
+    return {
+      active: true,
+      blockedPorts: [...this.firewallBlockedPorts]
+    };
+  }
+
   private processes: OSProcess[] = [
     { 
       pid: 0, 
@@ -604,7 +633,7 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
       }
 
       case 'netstat': {
-        const hasSuspicious = this.processes.some(p => p.pid === 4992);
+        const hasSuspicious = this.processes.some(p => p.pid === 4992) && !this.firewallBlockedPorts.includes(8089);
         const lines = [
           'Conexões Ativas',
           '',
@@ -618,6 +647,126 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         }
         lines.push('  TCP    192.168.1.50:49210      198.51.100.22:443       ESTABLISHED     1450');
         return { output: lines.join('\n'), exitCode: 0 };
+      }
+
+      case 'reg':
+      case 'reg.exe': {
+        const sub = args[0]?.toLowerCase();
+        if (sub === 'query') {
+          const rawKey = args[1]?.replace(/['"]/g, '').toUpperCase();
+          if (!rawKey) return { output: 'ERRO: Sintaxe inválida. Uso: reg query <Chave>', exitCode: 1 };
+
+          // Busca flexível
+          const foundKey = Object.keys(this.registryData).find(k => k.toUpperCase() === rawKey || rawKey.includes(k.toUpperCase()) || k.toUpperCase().includes(rawKey));
+          if (!foundKey) {
+            return { output: `ERRO: O sistema não pôde encontrar a chave ou valor de registro especificado: ${rawKey}`, exitCode: 1 };
+          }
+
+          const values = this.registryData[foundKey];
+          const lines = [`\n${foundKey}`];
+          for (const [k, v] of Object.entries(values)) {
+            const displayVal = v.type === 'REG_DWORD' ? `0x${Number(v.value).toString(16)}` : v.value;
+            lines.push(`    ${k.padEnd(24)} ${v.type.padEnd(14)} ${displayVal}`);
+          }
+          return { output: lines.join('\n'), exitCode: 0 };
+        }
+
+        if (sub === 'add') {
+          const rawKey = args[1]?.replace(/['"]/g, '').toUpperCase();
+          const vIdx = args.findIndex(a => a.toLowerCase() === '/v');
+          const valName = vIdx !== -1 ? args[vIdx + 1] : '';
+          const dIdx = args.findIndex(a => a.toLowerCase() === '/d');
+          const valData = dIdx !== -1 ? args[dIdx + 1] : '';
+          const tIdx = args.findIndex(a => a.toLowerCase() === '/t');
+          const valType = tIdx !== -1 ? args[tIdx + 1] : 'REG_SZ';
+
+          if (!rawKey || !valName) {
+            return { output: 'ERRO: Sintaxe incorreta. Exemplo: reg add "HKLM\\..." /v Nome /t REG_DWORD /d 1 /f', exitCode: 1 };
+          }
+
+          const targetKey = Object.keys(this.registryData).find(k => k.toUpperCase() === rawKey) || rawKey;
+          if (!this.registryData[targetKey]) {
+            this.registryData[targetKey] = {};
+          }
+
+          const parsedVal = valType === 'REG_DWORD' ? parseInt(valData, 10) : valData;
+          this.registryData[targetKey][valName] = {
+            type: valType,
+            value: parsedVal
+          };
+
+          syscalls.push({
+            id: Math.random().toString(),
+            timestamp: new Date().toLocaleTimeString(),
+            os: 'windows',
+            syscall: `NtSetValueKey(KeyHandle, "${valName}", "${valData}")`,
+            subsystem: 'Security',
+            parameters: `Key=${targetKey}, Value=${valName}, Data=${valData}`,
+            returnCode: 0,
+            ringLevel: 'Ring 0 (Kernel Mode)',
+            explanation: 'O Kernel do Windows atualiza a hive de registro no arquivo de configuração SYSTEM da pasta System32/config.'
+          });
+
+          if (valName.toLowerCase() === 'runasppl' && parsedVal === 1) {
+            return {
+              output: `A operação foi concluída com êxito.\n[HARDENING] Proteção de Processo Leve (RunAsPPL) ATIVADA para o LSASS! O processo lsass.exe agora está isolado contra injeção e leitura de memória de ferramentas como Mimikatz.`,
+              exitCode: 0,
+              stateChanges: {
+                flagDiscovered: 'FLAG{WINLINX_WINDOWS_LSA_RUNASPPL_ACTIVATED_2026}'
+              }
+            };
+          }
+
+          return { output: 'A operação foi concluída com êxito.', exitCode: 0 };
+        }
+
+        return { output: 'Uso: reg query <Chave> | reg add <Chave> /v <Nome> /t <Tipo> /d <Dados> /f', exitCode: 0 };
+      }
+
+      case 'netsh': {
+        if (cmdLine.toLowerCase().includes('advfirewall')) {
+          if (cmdLine.toLowerCase().includes('add rule')) {
+            const portMatch = cmdLine.match(/localport=(\d+)/i) || cmdLine.match(/port=(\d+)/i);
+            const port = portMatch ? parseInt(portMatch[1], 10) : 8089;
+
+            if (!this.firewallBlockedPorts.includes(port)) {
+              this.firewallBlockedPorts.push(port);
+            }
+
+            syscalls.push({
+              id: Math.random().toString(),
+              timestamp: new Date().toLocaleTimeString(),
+              os: 'windows',
+              syscall: `WfpCreateFilterRule() / WFP Callout`,
+              subsystem: 'Network',
+              parameters: `Windows Filtering Platform: BLOCK TCP ${port}`,
+              returnCode: 0,
+              ringLevel: 'Ring 0 (Kernel Mode)',
+              explanation: 'A plataforma de filtragem do Windows (WFP) insere filtro de descarte na camada de transporte do driver tcpip.sys.'
+            });
+
+            return {
+              output: `Ok.\n[FIREWALL DEFENDER] Regra adicionada ao Firewall do Windows com Segurança Avançada!\nPorta ${port} bloqueada para conexões de entrada.`,
+              exitCode: 0,
+              stateChanges: {
+                flagDiscovered: port === 8089 ? 'FLAG{WINLINX_WINDOWS_FIREWALL_RULE_APPLIED_8089}' : undefined
+              }
+            };
+          }
+
+          return {
+            output: `Configuração do Perfil de Domínio:
+----------------------------------------------------------------------
+Estado                                HABILITADO
+Ações de Entrada                      Bloquear (padrão)
+Ações de Saída                        Permitir (padrão)
+
+Portas Bloqueadas Ativas:
+${this.firewallBlockedPorts.map(p => `  TCP Porta ${p} (Regra: Bloqueio de Conexão Não Homologada)`).join('\n') || '  Nenhuma porta personalizada bloqueada.'}`,
+            exitCode: 0
+          };
+        }
+        return { output: 'Uso: netsh advfirewall firewall show rule name=all | netsh advfirewall firewall add rule ...', exitCode: 0 };
       }
 
       case 'icacls': {
