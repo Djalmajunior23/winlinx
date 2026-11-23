@@ -13,25 +13,187 @@ export class WindowsSimulatorEngine {
   };
 
   private processes: OSProcess[] = [
-    { pid: 4, name: 'System', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.8, memoryMb: 45.0, path: 'ntoskrnl.exe', status: 'running' },
-    { pid: 512, name: 'smss.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.0, memoryMb: 4.2, path: 'C:\\Windows\\System32\\smss.exe', status: 'running' },
-    { pid: 688, name: 'csrss.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.1, memoryMb: 6.8, path: 'C:\\Windows\\System32\\csrss.exe', status: 'running' },
-    { pid: 740, name: 'wininit.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.0, memoryMb: 5.1, path: 'C:\\Windows\\System32\\wininit.exe', status: 'running' },
-    { pid: 812, name: 'services.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.2, memoryMb: 12.0, path: 'C:\\Windows\\System32\\services.exe', status: 'running', networkPort: 135 },
-    { pid: 840, name: 'lsass.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.5, memoryMb: 28.5, path: 'C:\\Windows\\System32\\lsass.exe', status: 'running' },
-    { pid: 980, name: 'svchost.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.3, memoryMb: 18.2, path: 'C:\\Windows\\System32\\svchost.exe', status: 'running', networkPort: 3389 },
-    { pid: 1450, name: 'explorer.exe', user: 'ALUNO-PC\\Aluno', cpu: 1.1, memoryMb: 65.4, path: 'C:\\Windows\\explorer.exe', status: 'running' },
-    { pid: 2110, name: 'powershell.exe', user: 'ALUNO-PC\\Aluno', cpu: 0.4, memoryMb: 48.0, path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', status: 'running' },
+    { 
+      pid: 0, 
+      ppid: 0, 
+      name: 'System Idle Process', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 91.2, 
+      memoryMb: 0.0, 
+      path: 'ntoskrnl.exe', 
+      expectedPath: 'ntoskrnl.exe',
+      status: 'running',
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      description: 'Processo especial do kernel que contabiliza ciclos ociosos de cada núcleo de CPU.',
+      cybersecRole: 'Não pode ser terminado ou modificado por nenhum software em user mode.'
+    },
+    { 
+      pid: 4, 
+      ppid: 0, 
+      name: 'System', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.8, 
+      memoryMb: 45.0, 
+      path: 'ntoskrnl.exe', 
+      expectedPath: 'ntoskrnl.exe',
+      status: 'running', 
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      networkPort: 445,
+      description: 'Processo do Kernel NT em Ring 0. Abriga threads de drivers de dispositivo, subsistema de memória e SMB (porta 445).',
+      cybersecRole: 'Alvo de vulnerabilidades em drivers (BYOVD - Bring Your Own Vulnerable Driver) e ataques de rede SMB (EternalBlue / Relay).'
+    },
+    { 
+      pid: 320, 
+      ppid: 4, 
+      name: 'smss.exe', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.0, 
+      memoryMb: 4.2, 
+      path: 'C:\\Windows\\System32\\smss.exe', 
+      expectedPath: 'C:\\Windows\\System32\\smss.exe',
+      status: 'running',
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      description: 'Session Manager Subsystem (SMSS) - Primeiro processo de modo usuário (Ring 3) iniciado pelo kernel. Cria as sessões 0 (serviços) e 1 (usuário).',
+      cybersecRole: 'Processo altamente protegido; se for finalizado intencionalmente, o Windows gera um Blue Screen of Death (BSOD CRITICAL_PROCESS_DIED).'
+    },
+    { 
+      pid: 450, 
+      ppid: 320, 
+      name: 'csrss.exe', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.1, 
+      memoryMb: 6.8, 
+      path: 'C:\\Windows\\System32\\csrss.exe', 
+      expectedPath: 'C:\\Windows\\System32\\csrss.exe',
+      status: 'running',
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      description: 'Client/Server Runtime Subsystem (CSRSS) - Gerencia janelas de console Win32, criação/encerramento de threads e a GUI básica.',
+      cybersecRole: 'Frequentemente alvo de técnicas de masquerading; deve sempre rodar a partir de System32 e com usuário SYSTEM.'
+    },
+    { 
+      pid: 580, 
+      ppid: 320, 
+      name: 'wininit.exe', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.0, 
+      memoryMb: 5.1, 
+      path: 'C:\\Windows\\System32\\wininit.exe', 
+      expectedPath: 'C:\\Windows\\System32\\wininit.exe',
+      status: 'running',
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      description: 'Windows Initialization Process - Inicializa o subsistema de segurança LSASS e o Service Control Manager na Sessão 0.',
+      cybersecRole: 'Cria os processos centrais da segurança do Windows (services.exe e lsass.exe).'
+    },
+    { 
+      pid: 650, 
+      ppid: 580, 
+      name: 'services.exe', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.2, 
+      memoryMb: 12.0, 
+      path: 'C:\\Windows\\System32\\services.exe', 
+      expectedPath: 'C:\\Windows\\System32\\services.exe',
+      status: 'running', 
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      networkPort: 135,
+      description: 'Service Control Manager (SCM) - Gerencia o início, parada e configuração de todos os serviços de background do Windows.',
+      cybersecRole: 'Alvo principal para persistência de malwares que tentam registrar serviços maliciosos rodando como LocalSystem (T1543.003).'
+    },
+    { 
+      pid: 720, 
+      ppid: 580, 
+      name: 'lsass.exe', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.5, 
+      memoryMb: 28.5, 
+      path: 'C:\\Windows\\System32\\lsass.exe', 
+      expectedPath: 'C:\\Windows\\System32\\lsass.exe',
+      status: 'running',
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      description: 'Local Security Authority Subsystem Service - Subsistema responsável por autenticação, tokens de acesso, Kerberos e NTLM.',
+      cybersecRole: 'ALVO NÚMERO 1 EM CIBERSEGURANÇA: Ferramentas como Mimikatz tentam fazer dump de memória do LSASS para extrair hashes NTLM e tickets Kerberos (MITRE ATT&CK T1003.001). Protegido via PPL (Protected Process Light) e Credential Guard.',
+      mitreRef: 'T1003.001'
+    },
+    { 
+      pid: 890, 
+      ppid: 650, 
+      name: 'svchost.exe', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.3, 
+      memoryMb: 18.2, 
+      path: 'C:\\Windows\\System32\\svchost.exe', 
+      expectedPath: 'C:\\Windows\\System32\\svchost.exe',
+      status: 'running', 
+      integrityLevel: 'System',
+      networkPort: 3389,
+      description: 'Generic Host Process for Windows Services - Executa serviços compilados em formato DLL compartilhada.',
+      cybersecRole: 'Atacantes frequentemente injetam código (DLL Injection / Process Hollowing - T1055) dentro de svchost legítimos para mascarar tráfego malicioso.'
+    },
+    { 
+      pid: 920, 
+      ppid: 320, 
+      name: 'winlogon.exe', 
+      user: 'NT AUTHORITY\\SYSTEM', 
+      cpu: 0.1, 
+      memoryMb: 8.4, 
+      path: 'C:\\Windows\\System32\\winlogon.exe', 
+      expectedPath: 'C:\\Windows\\System32\\winlogon.exe',
+      status: 'running',
+      isProtectedProcess: true,
+      integrityLevel: 'System',
+      description: 'Windows Logon Process - Lida com a sequência de atenção segura (SAS / Ctrl+Alt+Del) e carrega o perfil do usuário.',
+      cybersecRole: 'Garante que telas falsas de captura de senha não possam interceptar a combinação de teclas de hardware.'
+    },
+    { 
+      pid: 1450, 
+      ppid: 920, 
+      name: 'explorer.exe', 
+      user: 'ALUNO-PC\\Aluno', 
+      cpu: 1.1, 
+      memoryMb: 65.4, 
+      path: 'C:\\Windows\\explorer.exe', 
+      expectedPath: 'C:\\Windows\\explorer.exe',
+      status: 'running',
+      integrityLevel: 'Medium',
+      description: 'Windows Explorer Shell - Interface gráfica de usuário, área de trabalho e barra de tarefas do Aluno.',
+      cybersecRole: 'Processo pai de quase todas as aplicações iniciadas pelo usuário. Opera com nível de integridade Médio (Medium Integrity).'
+    },
+    { 
+      pid: 2110, 
+      ppid: 1450, 
+      name: 'powershell.exe', 
+      user: 'ALUNO-PC\\Aluno', 
+      cpu: 0.4, 
+      memoryMb: 48.0, 
+      path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', 
+      expectedPath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+      status: 'running',
+      integrityLevel: 'Medium',
+      description: 'Sessão interativa do PowerShell executada pelo usuário aluno.',
+      cybersecRole: 'Interpretador de scripts e cmdlets (MITRE ATT&CK T1059.001).'
+    },
     {
       pid: 4992,
+      ppid: 1450,
       name: 'updater_svc.exe',
       user: 'ALUNO-PC\\Aluno',
       cpu: 2.4,
       memoryMb: 32.1,
       path: 'C:\\Program Files\\Custom App\\service.exe',
+      expectedPath: 'C:\\Program Files\\Custom App\\service.exe',
       status: 'running',
       isSuspicious: true,
-      description: 'Binário executado a partir de caminho sem aspas e gravável por Users comuns',
+      integrityLevel: 'Medium',
+      description: 'Binário executado a partir de caminho sem aspas e gravável por Users comuns.',
+      cybersecRole: 'Unquoted Service Path (T1574.009) e serviço não homologado em porta 8089.',
+      mitreRef: 'T1574.009',
       networkPort: 8089
     }
   ];
@@ -48,13 +210,17 @@ export class WindowsSimulatorEngine {
     return this.currentUser;
   }
 
-  public getAutoCompleteOptions(prefix: string): string[] {
-    const tokens = prefix.split(' ');
-    const lastToken = tokens[tokens.length - 1];
+  public getProcesses(): OSProcess[] {
+    return [...this.processes];
+  }
 
-    if (tokens.length === 1) {
+  public getAutoCompleteOptions(prefix: string): string[] {
+    const tokens = this.parseArgs(prefix);
+    const lastToken = tokens[tokens.length - 1] || '';
+
+    if (tokens.length <= 1) {
       const commands = [
-        'Get-Process', 'ps', 'Get-Service', 'Get-ChildItem', 'dir', 'ls',
+        'Get-Process', 'ps', 'pstree', 'tasklist', 'Get-Service', 'Get-ChildItem', 'dir', 'ls',
         'Get-Content', 'type', 'cat', 'Get-Location', 'pwd', 'Set-Location', 'cd',
         'whoami', 'icacls', 'netstat', 'sc', 'sc.exe', 'Get-EventLog',
         'Get-ScheduledTask', 'Stop-Process', 'taskkill', 'New-Item', 'Remove-Item', 'cls', 'clear', 'help'
@@ -84,7 +250,6 @@ export class WindowsSimulatorEngine {
 
     this.inspectEDR(trimmed, edrAlerts);
 
-    // Suporte a Redirecionamento (> e >>)
     if (trimmed.includes('>')) {
       const isAppend = trimmed.includes('>>');
       const parts = trimmed.split(isAppend ? '>>' : '>');
@@ -105,7 +270,6 @@ export class WindowsSimulatorEngine {
       };
     }
 
-    // Suporte a elevação simulada "Run as Administrator"
     if (trimmed.toLowerCase().startsWith('start-process powershell -verb runas') || trimmed.toLowerCase() === 'elevate') {
       this.currentUser = 'NT AUTHORITY\\SYSTEM';
       syscalls.push({
@@ -221,6 +385,27 @@ export class WindowsSimulatorEngine {
           exitCode: 0
         };
 
+      case 'tasklist':
+      case 'pstree': {
+        const lines = [
+          'Nome da Imagem                 PID  PPID Sessão         Uso de Memória',
+          '========================= ======== ===== ============ ===============',
+          'System Idle Process              0     0 Services                 8 K',
+          'System                           4     0 Services             46.080 K',
+          'smss.exe                       320     4 Services              4.300 K [PPL Protected]',
+          'csrss.exe                      450   320 Services              6.963 K [PPL Protected]',
+          'wininit.exe                    580   320 Services              5.222 K [PPL Protected]',
+          'services.exe                   650   580 Services             12.288 K',
+          'lsass.exe                      720   580 Services             29.184 K [PPL Protected - LSA]',
+          'svchost.exe                    890   650 Services             18.636 K',
+          'winlogon.exe                   920   320 Console               8.601 K [PPL Protected]',
+          'explorer.exe                  1450   920 Console              66.969 K',
+          'powershell.exe                2110  1450 Console              49.152 K',
+          'updater_svc.exe               4992  1450 Console              32.870 K [SUSPEITO]*'
+        ];
+        return { output: lines.join('\n'), exitCode: 0 };
+      }
+
       case 'whoami': {
         if (args.includes('/priv')) {
           return {
@@ -277,6 +462,10 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         }
 
         const proc = this.processes[procIdx];
+        if (proc.isProtectedProcess && !this.currentUser.includes('SYSTEM')) {
+          return { output: `Stop-Process : Acesso negado. O processo '${proc.name}' é protegido pelo sistema (PPL Protected Process).`, exitCode: 1 };
+        }
+
         this.processes.splice(procIdx, 1);
 
         syscalls.push({
@@ -403,12 +592,12 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
       case 'ps':
       case 'get-process': {
         const lines = [
-          'Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id ProcessName',
-          '-------  ------    -----      -----     ------     -- -----------'
+          'Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id   PPID ProcessName',
+          '-------  ------    -----      -----     ------     --   ---- -----------'
         ];
         for (const p of this.processes) {
           lines.push(
-            `    ${Math.floor(p.memoryMb * 8).toString().padStart(3)}      14    ${Math.floor(p.memoryMb * 1024).toString().padStart(6)}     ${Math.floor(p.memoryMb * 1200).toString().padStart(6)}       ${p.cpu.toFixed(2)}   ${p.pid.toString().padStart(4)} ${p.name.replace('.exe', '')}`
+            `    ${Math.floor(p.memoryMb * 8).toString().padStart(3)}      14    ${Math.floor(p.memoryMb * 1024).toString().padStart(6)}     ${Math.floor(p.memoryMb * 1200).toString().padStart(6)}       ${p.cpu.toFixed(2)}   ${p.pid.toString().padStart(4)}   ${p.ppid.toString().padStart(4)} ${p.name.replace('.exe', '')}`
           );
         }
         return { output: lines.join('\n'), exitCode: 0 };
@@ -420,9 +609,9 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
           'Conexões Ativas',
           '',
           '  Proto  Endereço Local          Endereço Externo        Estado          PID',
-          '  TCP    0.0.0.0:135             0.0.0.0:0               LISTENING       812',
+          '  TCP    0.0.0.0:135             0.0.0.0:0               LISTENING       650',
           '  TCP    0.0.0.0:445             0.0.0.0:0               LISTENING       4',
-          '  TCP    0.0.0.0:3389            0.0.0.0:0               LISTENING       980'
+          '  TCP    0.0.0.0:3389            0.0.0.0:0               LISTENING       890'
         ];
         if (hasSuspicious) {
           lines.push('  TCP    0.0.0.0:8089            0.0.0.0:0               LISTENING       4992  <-- [Serviço Não Homologado]');
@@ -552,9 +741,9 @@ NOME_DO_SERVIÇO: ${svcName}
       case 'get-help': {
         return {
           output: `Comandos suportados no Simulador Windows PowerShell (WinLinx Enterprise):
+- Processos & Árvore: Get-Process, ps, pstree, tasklist, Stop-Process -Id <PID>, taskkill, netstat -ano
 - VFS & Arquivos: pwd, Get-Location, cd, dir, ls, Get-ChildItem, cat, type, Get-Content, echo [> | >>]
 - Identidade & Token: whoami, whoami /priv, whoami /all, elevate
-- Processos & Rede: Get-Process, Stop-Process -Id <PID>, taskkill /PID <PID>, netstat -ano
 - Segurança & DACL: icacls <caminho>, icacls <caminho> /remove "BUILTIN\\Users"
 - Serviços & Persistência: Get-Service, sc qc <serviço>, Get-ScheduledTask
 - Auditoria: Get-EventLog -LogName Security`,

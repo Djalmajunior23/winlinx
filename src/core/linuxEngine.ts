@@ -13,22 +13,155 @@ export class LinuxSimulatorEngine {
   };
 
   private processes: OSProcess[] = [
-    { pid: 1, name: 'systemd', user: 'root', cpu: 0.1, memoryMb: 12.4, path: '/sbin/init', status: 'running' },
-    { pid: 280, name: 'systemd-journald', user: 'root', cpu: 0.2, memoryMb: 18.2, path: '/lib/systemd/systemd-journald', status: 'running' },
-    { pid: 412, name: 'sshd', user: 'root', cpu: 0.0, memoryMb: 8.5, path: '/usr/sbin/sshd', status: 'running', networkPort: 22 },
-    { pid: 615, name: 'cron', user: 'root', cpu: 0.0, memoryMb: 4.1, path: '/usr/sbin/cron', status: 'running' },
-    { pid: 782, name: 'nginx', user: 'www-data', cpu: 0.4, memoryMb: 24.0, path: '/usr/sbin/nginx', status: 'running', networkPort: 80 },
-    { pid: 1042, name: 'bash', user: 'aluno', cpu: 0.0, memoryMb: 6.8, path: '/bin/bash', status: 'running' },
+    { 
+      pid: 1, 
+      ppid: 0, 
+      name: 'systemd', 
+      user: 'root', 
+      cpu: 0.1, 
+      memoryMb: 14.8, 
+      path: '/sbin/init', 
+      expectedPath: '/sbin/init',
+      status: 'running',
+      isProtectedProcess: true,
+      description: 'Init System (PID 1) - Ancestral de todos os processos de espaço de usuário (Ring 3), gerencia cgroups, targets e units de serviço.',
+      cybersecRole: 'Controla inicialização segura, sandboxing de serviços (ProtectSystem=full, PrivateTmp=true).'
+    },
+    { 
+      pid: 2, 
+      ppid: 0, 
+      name: 'kthreadd', 
+      user: 'root', 
+      cpu: 0.0, 
+      memoryMb: 0.0, 
+      path: '[kthreadd]', 
+      expectedPath: '[kthreadd]',
+      status: 'running',
+      isProtectedProcess: true,
+      description: 'Kernel Thread Daemon (PID 2) - Criador e coordenador de todas as threads que operam diretamente no espaço de Kernel (Ring 0).',
+      cybersecRole: 'Processos com PPID 2 são threads de kernel legítimas. Malwares em user-mode que tentam usar nomes [kworker] são facilmente detectados por terem PPID diferente de 2.'
+    },
+    { 
+      pid: 350, 
+      ppid: 1, 
+      name: 'systemd-journald', 
+      user: 'root', 
+      cpu: 0.2, 
+      memoryMb: 18.2, 
+      path: '/lib/systemd/systemd-journald', 
+      expectedPath: '/lib/systemd/systemd-journald',
+      status: 'running',
+      description: 'Serviço de coleta, indexação e armazenamento seguro de logs de eventos do sistema operacional.',
+      cybersecRole: 'Primeira linha de telemetria para detecção de anomalias e auditoria de segurança (journalctl).'
+    },
+    { 
+      pid: 380, 
+      ppid: 1, 
+      name: 'systemd-udevd', 
+      user: 'root', 
+      cpu: 0.0, 
+      memoryMb: 9.4, 
+      path: '/lib/systemd/systemd-udevd', 
+      expectedPath: '/lib/systemd/systemd-udevd',
+      status: 'running',
+      description: 'Gerenciador de eventos de hardware e nós de dispositivos em /dev.',
+      cybersecRole: 'Monitora conexões USB e hardware externo (prevenção contra ataques BadUSB e Rubber Ducky).'
+    },
+    { 
+      pid: 412, 
+      ppid: 1, 
+      name: 'sshd', 
+      user: 'root', 
+      cpu: 0.0, 
+      memoryMb: 8.5, 
+      path: '/usr/sbin/sshd', 
+      expectedPath: '/usr/sbin/sshd',
+      status: 'running', 
+      networkPort: 22,
+      description: 'OpenSSH Daemon - Servidor de acesso remoto criptografado via SSH (Secure Shell).',
+      cybersecRole: 'Alvo constante de ataques de força bruta (T1110) e roubo de chaves SSH autorizadas.'
+    },
+    { 
+      pid: 520, 
+      ppid: 1, 
+      name: 'dbus-daemon', 
+      user: 'messagebus', 
+      cpu: 0.0, 
+      memoryMb: 6.2, 
+      path: '/usr/bin/dbus-daemon', 
+      expectedPath: '/usr/bin/dbus-daemon',
+      status: 'running',
+      description: 'Barramento de comunicação inter-processos (IPC) do sistema Linux.',
+      cybersecRole: 'Permite comunicação segura entre processos; políticas D-Bus mal configuradas podem permitir elevação de privilégios.'
+    },
+    { 
+      pid: 615, 
+      ppid: 1, 
+      name: 'cron', 
+      user: 'root', 
+      cpu: 0.0, 
+      memoryMb: 4.1, 
+      path: '/usr/sbin/cron', 
+      expectedPath: '/usr/sbin/cron',
+      status: 'running',
+      description: 'Daemon de execução e agendamento de tarefas programadas (crontab).',
+      cybersecRole: 'Vetor mais frequente de persistência de malware no Linux (MITRE ATT&CK T1053.003).'
+    },
+    { 
+      pid: 650, 
+      ppid: 1, 
+      name: 'auditd', 
+      user: 'root', 
+      cpu: 0.1, 
+      memoryMb: 11.0, 
+      path: '/sbin/auditd', 
+      expectedPath: '/sbin/auditd',
+      status: 'running',
+      isProtectedProcess: true,
+      description: 'Subsistema de auditoria de segurança do Linux Kernel.',
+      cybersecRole: 'Gera telemetria sobre execução de comandos, chamadas de sistema (syscalls) e alterações de permissões sensíveis.'
+    },
+    { 
+      pid: 782, 
+      ppid: 1, 
+      name: 'nginx', 
+      user: 'www-data', 
+      cpu: 0.4, 
+      memoryMb: 24.0, 
+      path: '/usr/sbin/nginx', 
+      expectedPath: '/usr/sbin/nginx',
+      status: 'running', 
+      networkPort: 80,
+      description: 'Servidor Web HTTP/Reverse Proxy de alta performance.',
+      cybersecRole: 'Executa isolado sob a conta www-data com menor privilégio para evitar acesso root em caso de exploração de vulnerabilidades web.'
+    },
+    { 
+      pid: 1042, 
+      ppid: 412, 
+      name: 'bash', 
+      user: 'aluno', 
+      cpu: 0.0, 
+      memoryMb: 6.8, 
+      path: '/bin/bash', 
+      expectedPath: '/bin/bash',
+      status: 'running',
+      description: 'Sessão interativa do aluno logado via SSH.',
+      cybersecRole: 'Interpretador de comandos (T1059.004).'
+    },
     { 
       pid: 1337, 
+      ppid: 1042, 
       name: 'kworker_rev', 
       user: 'backup-user', 
       cpu: 1.8, 
       memoryMb: 14.2, 
       path: '/tmp/.hidden/kworker_rev', 
+      expectedPath: '[kworker/*]',
       status: 'running',
       isSuspicious: true,
-      description: 'Reverse shell disfarçado como kworker do kernel',
+      description: 'Processo malicioso disfarçado de worker de kernel rodando em /tmp/.hidden.',
+      cybersecRole: 'Exemplo prático de Masquerading (T1036) e conexão de Reverse Shell (T1049).',
+      mitreRef: 'T1036',
       networkPort: 4444
     }
   ];
@@ -45,24 +178,23 @@ export class LinuxSimulatorEngine {
     return this.currentUser;
   }
 
-  public getEnvVars(): Record<string, string> {
-    return { ...this.envVars };
+  public getProcesses(): OSProcess[] {
+    return [...this.processes];
   }
 
   public getAutoCompleteOptions(prefix: string): string[] {
-    const tokens = prefix.split(' ');
-    const lastToken = tokens[tokens.length - 1];
+    const tokens = this.parseArgs(prefix);
+    const lastToken = tokens[tokens.length - 1] || '';
 
-    if (tokens.length === 1) {
+    if (tokens.length <= 1) {
       const commands = [
-        'ls', 'cd', 'cat', 'pwd', 'whoami', 'id', 'uname', 'ps', 'ss', 'netstat',
+        'ls', 'cd', 'cat', 'pwd', 'whoami', 'id', 'uname', 'ps', 'pstree', 'ss', 'netstat',
         'find', 'chmod', 'chown', 'systemctl', 'journalctl', 'crontab', 'touch',
         'mkdir', 'rm', 'kill', 'echo', 'env', 'export', 'clear', 'help'
       ];
       return commands.filter(c => c.startsWith(lastToken));
     }
 
-    // Autocomplete de arquivos no diretório atual
     const currentNode = this.getNodeByPath(this.currentDir);
     if (!currentNode || !currentNode.children) return [];
 
@@ -83,10 +215,8 @@ export class LinuxSimulatorEngine {
     const syscalls: SyscallTrace[] = [];
     const edrAlerts: EDRAlert[] = [];
 
-    // Verificação de EDR / Heurística
     this.inspectEDR(trimmed, edrAlerts);
 
-    // Suporte a Redirecionamento (> e >>)
     if (trimmed.includes('>') && !trimmed.includes('2>')) {
       const isAppend = trimmed.includes('>>');
       const parts = trimmed.split(isAppend ? '>>' : '>');
@@ -107,7 +237,6 @@ export class LinuxSimulatorEngine {
       };
     }
 
-    // Suporte a sudo
     if (trimmed.startsWith('sudo ')) {
       const rest = trimmed.slice(5).trim();
       syscalls.push({
@@ -141,7 +270,6 @@ export class LinuxSimulatorEngine {
       return { ...res, syscalls, edrAlerts };
     }
 
-    // Suporte a pipes básicos
     if (trimmed.includes('|')) {
       const parts = trimmed.split('|').map(p => p.trim());
       let currentOutput = '';
@@ -190,7 +318,7 @@ export class LinuxSimulatorEngine {
         mitreId: 'T1036',
         mitreTechnique: 'Masquerading: Match Legitimate Name or Location',
         triggeredCommand: cmdLine,
-        analystSummary: 'Processo com nome falso de kernel worker executando de /tmp/.hidden. Forte indício de persistência/C2 backdoor.',
+        analystSummary: 'Processo com nome falso de kernel worker executando de /tmp/.hidden com PPID 1042 (deveria ser PPID 2).',
         remediationAdvice: 'Montar a partição /tmp com flag noexec e finalizar imediatamente o processo suspeito.'
       });
     }
@@ -227,7 +355,6 @@ export class LinuxSimulatorEngine {
     const cmd = tokens[0];
     const args = tokens.slice(1);
 
-    // Syscall padrão de execução
     syscalls.push({
       id: Math.random().toString(),
       timestamp: new Date().toLocaleTimeString(),
@@ -255,6 +382,20 @@ export class LinuxSimulatorEngine {
           return { output: 'uid=0(root) gid=0(root) groups=0(root)', exitCode: 0 };
         }
         return { output: 'uid=1000(aluno) gid=1000(aluno) groups=1000(aluno),27(sudo)', exitCode: 0 };
+      }
+
+      case 'pstree': {
+        const lines = [
+          'systemd(1)─┬─systemd-journald(350)',
+          '           ├─systemd-udevd(380)',
+          '           ├─sshd(412)───bash(1042)───kworker_rev(1337)*',
+          '           ├─dbus-daemon(520)',
+          '           ├─cron(615)',
+          '           ├─auditd(650)',
+          '           └─nginx(782)───nginx(783)',
+          'kthreadd(2)───[kworker/0:0-events]'
+        ];
+        return { output: lines.join('\n'), exitCode: 0 };
       }
 
       case 'env': {
@@ -369,6 +510,10 @@ export class LinuxSimulatorEngine {
         }
 
         const proc = this.processes[procIdx];
+        if (proc.isProtectedProcess && this.currentUser !== 'root') {
+          return { output: `bash: kill: (${pid}) - Permissão negada. Processo de sistema protegido.`, exitCode: 1 };
+        }
+
         this.processes.splice(procIdx, 1);
 
         syscalls.push({
@@ -467,6 +612,32 @@ export class LinuxSimulatorEngine {
           return { output: 'cat: informe o nome do arquivo', exitCode: 1 };
         }
         const resolved = this.resolvePath(args[0]);
+
+        if (resolved === '/proc/meminfo') {
+          return {
+            output: `MemTotal:        4018320 kB
+MemFree:         1842010 kB
+MemAvailable:    2890124 kB
+Buffers:          142100 kB
+Cached:          1120400 kB
+SwapTotal:       2097148 kB
+SwapFree:        2097148 kB`,
+            exitCode: 0
+          };
+        }
+
+        if (resolved === '/proc/cpuinfo') {
+          return {
+            output: `processor       : 0
+vendor_id       : GenuineIntel
+model name      : Intel(R) Core(TM) i7-12700K CPU @ 3.60GHz
+cpu MHz         : 3600.000
+cache size      : 25600 KB
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault epb invpcid_single pti ssbd ibrs ibpb stibp fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves arat umip md_clear flush_l1d arch_capabilities`,
+            exitCode: 0
+          };
+        }
+
         const node = this.getNodeByPath(resolved);
 
         syscalls.push({
@@ -495,11 +666,11 @@ export class LinuxSimulatorEngine {
 
       case 'ps': {
         const lines = [
-          'USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND'
+          'USER       PID  PPID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND'
         ];
         for (const p of this.processes) {
           lines.push(
-            `${p.user.padEnd(8)} ${p.pid.toString().padStart(5)}  ${p.cpu.toFixed(1)}  ${(p.memoryMb / 10).toFixed(1)}  15024  ${(p.memoryMb * 100).toFixed(0)} pts/0    ${p.status === 'running' ? 'S+' : 'I'}   10:00   0:0${Math.floor(p.cpu * 2)} ${p.path}`
+            `${p.user.padEnd(8)} ${p.pid.toString().padStart(5)} ${p.ppid.toString().padStart(5)}  ${p.cpu.toFixed(1)}  ${(p.memoryMb / 10).toFixed(1)}  15024  ${(p.memoryMb * 100).toFixed(0)} pts/0    ${p.status === 'running' ? 'S+' : 'I'}   10:00   0:0${Math.floor(p.cpu * 2)} ${p.path}`
           );
         }
         return { output: lines.join('\n'), exitCode: 0 };
@@ -601,12 +772,12 @@ export class LinuxSimulatorEngine {
       case 'help': {
         return {
           output: `Comandos suportados no Simulador Linux (WinLinx Enterprise):
+- Processos & Árvore: ps, ps aux, pstree, kill -9 <PID>, ss -tulpn, netstat
+- Sistema & Hardware: cat /proc/meminfo, cat /proc/cpuinfo, uname -a, env, export
 - Arquivos & VFS: pwd, cd, ls, cat, touch, mkdir, rm, echo [> | >>]
-- Identidade: whoami, id, sudo su, uname -a, env, export VAR=val
-- Processos: ps aux, ps -ef, ss -tulpn, netstat, kill -9 <PID>
-- Permissões: chmod, chown, cat /etc/passwd, cat /etc/shadow
+- Permissões & Contas: chmod, chown, id, whoami, sudo su, cat /etc/passwd
 - Serviços & Automação: systemctl status <svc>, crontab -l
-- Segurança: find / -perm -4000`,
+- Segurança & Recon: find / -perm -4000`,
           exitCode: 0
         };
       }

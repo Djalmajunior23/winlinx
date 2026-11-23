@@ -7,9 +7,14 @@ import { CommandComparator } from './components/CommandComparator';
 import { DualTerminalPlayground } from './components/DualTerminalPlayground';
 import { SyscallTracerView } from './components/SyscallTracerView';
 import { EDRTelemetryView } from './components/EDRTelemetryView';
+import { ProcessArchitectureExplorer } from './components/ProcessArchitectureExplorer';
+import { OSResourceAnatomyView } from './components/OSResourceAnatomyView';
 import { CertificateModal } from './components/CertificateModal';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert } from './types/simulator';
+import { LinuxSimulatorEngine } from './core/linuxEngine';
+import { WindowsSimulatorEngine } from './core/windowsEngine';
+import { createInitialLinuxFS, createInitialWindowsFS } from './core/defaultFileSystem';
 import { WinLinxEventBridge } from './core/eventBridge';
 import { Shield, ExternalLink, Terminal, Flame, BookOpen } from 'lucide-react';
 
@@ -17,6 +22,10 @@ export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeLabId, setActiveLabId] = useState<string>(PRACTICAL_LABS[0].id);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
+
+  // Instâncias singleton de motor para processos de SO
+  const [linuxEngine] = useState(() => new LinuxSimulatorEngine(createInitialLinuxFS()));
+  const [windowsEngine] = useState(() => new WindowsSimulatorEngine(createInitialWindowsFS()));
 
   // Estados de telemetria sênior em tempo real
   const [syscalls, setSyscalls] = useState<SyscallTrace[]>([]);
@@ -44,7 +53,6 @@ export function App() {
   const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
-    // Inicializa o Event Bridge de integração com CiberLab/CiberSim
     const bridge = WinLinxEventBridge.getInstance();
     bridge.notifyReady();
   }, []);
@@ -161,6 +169,17 @@ export function App() {
           <CurriculumView onSelectLab={handleSelectLab} />
         )}
 
+        {activeTab === 'processes' && (
+          <ProcessArchitectureExplorer
+            linuxProcesses={linuxEngine.getProcesses()}
+            windowsProcesses={windowsEngine.getProcesses()}
+          />
+        )}
+
+        {activeTab === 'anatomy' && (
+          <OSResourceAnatomyView />
+        )}
+
         {activeTab === 'labs' && (
           <LabRunnerView
             activeLabId={activeLabId}
@@ -217,22 +236,22 @@ export function App() {
 
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => setActiveTab('modules')}
+              onClick={() => setActiveTab('processes')}
               className="hover:text-slate-300 transition"
             >
-              Módulos Curriculares
+              Processos do SO
+            </button>
+            <button
+              onClick={() => setActiveTab('anatomy')}
+              className="hover:text-slate-300 transition"
+            >
+              Anatomia de Recursos
             </button>
             <button
               onClick={() => setActiveTab('syscalls')}
               className="hover:text-slate-300 transition"
             >
               Syscalls (Ring 0)
-            </button>
-            <button
-              onClick={() => setActiveTab('edr')}
-              className="hover:text-slate-300 transition"
-            >
-              EDR Telemetria
             </button>
             <button
               onClick={() => setIsCertificateOpen(true)}

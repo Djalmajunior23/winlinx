@@ -17,14 +17,20 @@ export interface FileNode {
 
 export interface OSProcess {
   pid: number;
+  ppid: number; // Identificador do Processo Pai (Parent Process ID)
   name: string;
   user: string;
   cpu: number;
   memoryMb: number;
   path: string;
+  expectedPath: string; // Caminho padrão esperado pelo SO
   status: 'running' | 'sleeping' | 'stopped';
   isSuspicious?: boolean;
+  isProtectedProcess?: boolean; // Processo crítico protegido (ex: PPL no Windows ou PID 1/2 no Linux)
+  integrityLevel?: 'System' | 'High' | 'Medium' | 'Low' | 'Untrusted';
   description?: string;
+  cybersecRole?: string; // Função de segurança e relevância para o analista
+  mitreRef?: string;
   networkPort?: number;
 }
 

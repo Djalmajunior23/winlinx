@@ -9,10 +9,22 @@ import {
   CheckCircle2, 
   FolderGit2,
   Cpu,
-  ShieldAlert
+  ShieldAlert,
+  Layers,
+  Activity
 } from 'lucide-react';
 
-export type ActiveTab = 'dashboard' | 'modules' | 'dual-lab' | 'comparator' | 'labs' | 'certificate' | 'syscalls' | 'edr';
+export type ActiveTab = 
+  | 'dashboard' 
+  | 'modules' 
+  | 'processes'
+  | 'anatomy'
+  | 'dual-lab' 
+  | 'comparator' 
+  | 'labs' 
+  | 'certificate' 
+  | 'syscalls' 
+  | 'edr';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -60,10 +72,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Navegação Principal */}
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden xl:flex items-center space-x-1">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 activeTab === 'dashboard'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -73,96 +85,105 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('modules')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'modules'
+              onClick={() => setActiveTab('processes')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'processes'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <BookOpen className="w-4 h-4" />
-              <span>Módulos</span>
+              <Activity className="w-3.5 h-3.5" />
+              <span>Processos do SO</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('anatomy')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'anatomy'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Anatomia & Recursos</span>
             </button>
 
             <button
               onClick={() => setActiveTab('labs')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'labs'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <Terminal className="w-4 h-4" />
+              <Terminal className="w-3.5 h-3.5" />
               <span>Labs Práticos</span>
             </button>
 
             <button
               onClick={() => setActiveTab('dual-lab')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'dual-lab'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <FolderGit2 className="w-4 h-4" />
+              <FolderGit2 className="w-3.5 h-3.5" />
               <span>Dual-Shell</span>
             </button>
 
             <button
               onClick={() => setActiveTab('comparator')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'comparator'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <ArrowLeftRight className="w-4 h-4" />
+              <ArrowLeftRight className="w-3.5 h-3.5" />
               <span>Comparador</span>
             </button>
 
             <button
               onClick={() => setActiveTab('syscalls')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'syscalls'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <Cpu className="w-4 h-4 text-cyan-400" />
-              <span>Syscalls (Ring 0)</span>
+              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Syscalls</span>
             </button>
 
             <button
               onClick={() => setActiveTab('edr')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'edr'
                   ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <ShieldAlert className="w-4 h-4 text-rose-400" />
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
               <span>EDR SOC</span>
               {activeAlertsCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
               )}
             </button>
           </nav>
 
           {/* Gamificação / Progresso do Aluno */}
-          <div className="flex items-center space-x-3">
-            {/* Flags */}
+          <div className="flex items-center space-x-2.5">
             <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-medium">
               <Flame className="w-3.5 h-3.5 fill-amber-400" />
               <span>{flagsFoundCount} Flags</span>
             </div>
 
-            {/* Progresso de Tarefas */}
-            <div className="hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+            <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>{progressPercent}%</span>
             </div>
 
-            {/* Botão de Certificado / Conquistas */}
             <button
               onClick={() => setActiveTab('certificate')}
               className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition"
