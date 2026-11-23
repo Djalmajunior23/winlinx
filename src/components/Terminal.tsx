@@ -13,6 +13,7 @@ interface TerminalProps {
   currentDir: string;
   currentUser: string;
   onExecuteCommand: (cmd: string) => { output: string; error?: string; exitCode: number; flag?: string };
+  onAutoComplete?: (input: string) => string[];
   title?: string;
   suggestedCommands?: string[];
 }
@@ -22,6 +23,7 @@ export const Terminal: React.FC<TerminalProps> = ({
   currentDir,
   currentUser,
   onExecuteCommand,
+  onAutoComplete,
   title,
   suggestedCommands = []
 }) => {
@@ -34,8 +36,8 @@ export const Terminal: React.FC<TerminalProps> = ({
       id: 'welcome',
       type: 'system',
       text: osType === 'linux'
-        ? `[WinLinx OS-Kernel Simulator] Linux 6.8.0-45-generic x86_64 (GNU/Linux)\n* Documentação: Digite 'help' para comandos suportados.\n* Objetivo: Investigue permissões, processos e telemetria.`
-        : `Windows PowerShell\nCopyright (C) Microsoft Corporation. Todos os direitos reservados.\n\nExperimente a nova plataforma cruzada PowerShell (https://aka.ms/pscore6)\nDigite 'help' ou 'Get-Help' para lista de comandos.`
+        ? `[WinLinx OS-Kernel Simulator] Linux 6.8.0-45-generic x86_64 (GNU/Linux)\n* Documentação: Digite 'help' para comandos suportados.\n* Suporte a autocompletion com [TAB].\n* Syscalls & EDR ativos em tempo real.`
+        : `Windows PowerShell\nCopyright (C) Microsoft Corporation. Todos os direitos reservados.\n\nExperimente a nova plataforma cruzada PowerShell (https://aka.ms/pscore6)\nDigite 'help' ou 'Get-Help' para lista de comandos.\nSuporte a autocompletion com [TAB].`
     }
   ]);
 
@@ -71,22 +73,39 @@ export const Terminal: React.FC<TerminalProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (onAutoComplete && inputVal.trim()) {
+        const matches = onAutoComplete(inputVal);
+        if (matches.length === 1) {
+          setInputVal(matches[0]);
+        } else if (matches.length > 1) {
+          setLines(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              type: 'system',
+              text: matches.join('   ')
+            }
+          ]);
+        }
+      }
+      return;
+    }
+
     if (e.key === 'Enter') {
       const cmd = inputVal.trim();
       if (!cmd) return;
 
-      // Adiciona ao histórico de comandos
       setHistory(prev => [cmd, ...prev]);
       setHistoryIdx(-1);
 
-      // Limpar tela especial
       if (cmd.toLowerCase() === 'clear' || cmd.toLowerCase() === 'cls') {
         setLines([]);
         setInputVal('');
         return;
       }
 
-      // Adiciona a linha do prompt executado
       const newPromptLine: TerminalLine = {
         id: Math.random().toString(),
         type: 'prompt',
@@ -162,7 +181,6 @@ export const Terminal: React.FC<TerminalProps> = ({
         isLinux ? 'bg-slate-900/90' : 'bg-slate-900/90'
       }`}>
         <div className="flex items-center space-x-2">
-          {/* Bolinhas estilo janela OS */}
           <div className="flex items-center space-x-1.5 mr-2">
             <span className="w-3 h-3 rounded-full bg-red-500/80 border border-red-600/50" />
             <span className="w-3 h-3 rounded-full bg-yellow-500/80 border border-yellow-600/50" />
@@ -180,7 +198,6 @@ export const Terminal: React.FC<TerminalProps> = ({
           </span>
         </div>
 
-        {/* Ações do Terminal */}
         <div className="flex items-center space-x-1.5">
           <button
             onClick={handleCopyLogs}
@@ -199,7 +216,6 @@ export const Terminal: React.FC<TerminalProps> = ({
         </div>
       </div>
 
-      {/* Comandos Sugeridos para Facilidade do Aluno */}
       {suggestedCommands.length > 0 && (
         <div className="px-3 py-1.5 bg-slate-900/60 border-b border-slate-800 flex items-center space-x-2 overflow-x-auto text-[11px]">
           <div className="flex items-center space-x-1 text-slate-400 shrink-0">
@@ -220,7 +236,7 @@ export const Terminal: React.FC<TerminalProps> = ({
         </div>
       )}
 
-      {/* Janela de Saída e Histórico de Linhas */}
+      {/* Janela de Saída */}
       <div 
         className="flex-1 p-4 overflow-y-auto space-y-1 bg-black/60 font-mono text-xs leading-relaxed select-text min-h-[280px]"
         onClick={() => inputRef.current?.focus()}
@@ -281,7 +297,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 
       {/* Rodapé do Terminal */}
       <div className="px-3 py-1 bg-slate-950 border-t border-slate-900 text-[10px] text-slate-500 flex justify-between items-center">
-        <span>Use <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-400">↑</kbd> <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-400">↓</kbd> para histórico</span>
+        <span>Pressione <kbd className="px-1 py-0.5 bg-slate-800 rounded text-cyan-400 font-mono">TAB</kbd> para autocompletar</span>
         <span>Sessão: <strong className="text-slate-400">{currentUser}</strong></span>
       </div>
     </div>

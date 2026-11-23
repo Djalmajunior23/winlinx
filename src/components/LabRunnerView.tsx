@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PRACTICAL_LABS } from '../data/labs';
-import { LabDefinition, LabTask, OSType } from '../types/simulator';
+import { LabDefinition, LabTask, OSType, SyscallTrace, EDRAlert } from '../types/simulator';
 import { Terminal } from './Terminal';
 import { LinuxSimulatorEngine } from '../core/linuxEngine';
 import { WindowsSimulatorEngine } from '../core/windowsEngine';
@@ -22,12 +22,16 @@ interface LabRunnerViewProps {
   activeLabId?: string;
   onTaskCompleted: (taskId: string, flag?: string) => void;
   completedTasks: Set<string>;
+  onRecordSyscalls?: (traces: SyscallTrace[]) => void;
+  onRecordEDRAlerts?: (alerts: EDRAlert[]) => void;
 }
 
 export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
   activeLabId,
   onTaskCompleted,
-  completedTasks
+  completedTasks,
+  onRecordSyscalls,
+  onRecordEDRAlerts
 }) => {
   const [selectedLabId, setSelectedLabId] = useState<string>(activeLabId || PRACTICAL_LABS[0].id);
   const [activeOS, setActiveOS] = useState<OSType>('linux');
@@ -63,6 +67,9 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
     if (activeOS === 'linux') {
       const exec = linuxEngine.execute(cmd);
       setLinuxState({ cwd: linuxEngine.getCurrentDir(), user: linuxEngine.getCurrentUser() });
+      if (exec.syscalls && onRecordSyscalls) onRecordSyscalls(exec.syscalls);
+      if (exec.edrAlerts && onRecordEDRAlerts) onRecordEDRAlerts(exec.edrAlerts);
+
       res = {
         output: exec.output,
         error: exec.error,
@@ -72,6 +79,9 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
     } else {
       const exec = windowsEngine.execute(cmd);
       setWinState({ cwd: windowsEngine.getCurrentDir(), user: windowsEngine.getCurrentUser() });
+      if (exec.syscalls && onRecordSyscalls) onRecordSyscalls(exec.syscalls);
+      if (exec.edrAlerts && onRecordEDRAlerts) onRecordEDRAlerts(exec.edrAlerts);
+
       res = {
         output: exec.output,
         error: exec.error,
@@ -80,7 +90,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
       };
     }
 
-    // Validação automática de tarefas do laboratório atual
     currentLab.tasks.forEach(task => {
       if (completedTasks.has(task.id)) return;
 
@@ -89,7 +98,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
 
       let matched = false;
 
-      // Se há um comando específico de validação ou se a saída contém o texto esperado
       if (task.validationCommand && cmd.toLowerCase().includes(task.validationCommand.toLowerCase().split(' ')[0])) {
         if (task.expectedOutputSubstring && res.output.includes(task.expectedOutputSubstring)) {
           matched = true;
@@ -128,7 +136,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
               key={lab.id}
               onClick={() => {
                 setSelectedLabId(lab.id);
-                // Se a primeira tarefa for de windows, já ajusta o terminal
                 if (lab.tasks[0]?.targetOS === 'windows') {
                   setActiveOS('windows');
                 } else {
@@ -159,7 +166,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
         {/* Painel do Laboratório & Guia de Tarefas */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
-            {/* Cabeçalho do Lab */}
             <div className="space-y-2 border-b border-slate-800/80 pb-4">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-bold uppercase">
@@ -179,7 +185,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
               </p>
             </div>
 
-            {/* Cenário do Mundo Real */}
             <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 text-xs space-y-1">
               <div className="font-semibold text-amber-400 flex items-center gap-1.5">
                 <Target className="w-3.5 h-3.5" />
@@ -190,7 +195,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
               </p>
             </div>
 
-            {/* Técnicas MITRE ATT&CK */}
             <div className="space-y-1.5">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
                 Mapeamento MITRE ATT&CK:
@@ -207,7 +211,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
               </div>
             </div>
 
-            {/* Lista de Tarefas Práticas */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
@@ -223,7 +226,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                 </button>
               </div>
 
-              {currentLab.tasks.map((task, idx) => {
+              {currentLab.tasks.map((task) => {
                 const isCompleted = completedTasks.has(task.id);
                 const isHintOpen = showHintForTaskId === task.id;
 
@@ -253,7 +256,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Badge do SO Alvo */}
                       <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-mono font-bold shrink-0 ${
                         task.targetOS === 'linux'
                           ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
@@ -265,7 +267,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                       </span>
                     </div>
 
-                    {/* Dica Expansível */}
                     <div className="pt-1 flex items-center justify-between text-[11px]">
                       <button
                         onClick={() => setShowHintForTaskId(isHintOpen ? null : task.id)}
@@ -309,7 +310,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
 
         {/* Console Interativo do Aluno */}
         <div className="lg:col-span-7 space-y-3">
-          {/* Seletor de Terminal da Tarefa */}
           <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5">
             <span className="text-xs font-semibold text-slate-300">
               Ambiente de Execução Ativo:
@@ -342,7 +342,6 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
             </div>
           </div>
 
-          {/* Terminal */}
           <div className="h-[520px]">
             {activeOS === 'linux' ? (
               <Terminal
@@ -350,6 +349,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                 currentDir={linuxState.cwd}
                 currentUser={linuxState.user}
                 onExecuteCommand={handleExecuteCommand}
+                onAutoComplete={(prefix) => linuxEngine.getAutoCompleteOptions(prefix)}
                 title="Linux Lab Host - Prática de SO Aberto"
                 suggestedCommands={['ls -la', 'find / -perm -4000', 'chmod 755 /bin/find', 'ps aux | grep /tmp', 'cat /var/log/auth.log']}
               />
@@ -359,6 +359,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                 currentDir={winState.cwd}
                 currentUser={winState.user}
                 onExecuteCommand={handleExecuteCommand}
+                onAutoComplete={(prefix) => windowsEngine.getAutoCompleteOptions(prefix)}
                 title="Windows Lab Host - Prática de SO Fechado"
                 suggestedCommands={[
                   'dir',

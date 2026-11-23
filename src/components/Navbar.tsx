@@ -5,12 +5,14 @@ import {
   BookOpen, 
   ArrowLeftRight, 
   Award, 
-  Flame,
-  CheckCircle2,
-  FolderGit2
+  Flame, 
+  CheckCircle2, 
+  FolderGit2,
+  Cpu,
+  ShieldAlert
 } from 'lucide-react';
 
-export type ActiveTab = 'dashboard' | 'modules' | 'dual-lab' | 'comparator' | 'labs' | 'certificate';
+export type ActiveTab = 'dashboard' | 'modules' | 'dual-lab' | 'comparator' | 'labs' | 'certificate' | 'syscalls' | 'edr';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -18,6 +20,7 @@ interface NavbarProps {
   completedTasksCount: number;
   totalTasksCount: number;
   flagsFoundCount: number;
+  activeAlertsCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -25,7 +28,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   completedTasksCount,
   totalTasksCount,
-  flagsFoundCount
+  flagsFoundCount,
+  activeAlertsCount = 0
 }) => {
   const progressPercent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
@@ -46,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   WinLinx
                 </span>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/60 font-mono font-semibold">
-                  v1.0 OS-SEC
+                  PRO
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 hidden sm:block">
@@ -59,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <nav className="hidden md:flex items-center space-x-1">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'dashboard'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -70,19 +74,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('modules')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'modules'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>Módulos de SO</span>
+              <span>Módulos</span>
             </button>
 
             <button
               onClick={() => setActiveTab('labs')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'labs'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -93,27 +97,54 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('comparator')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
-                activeTab === 'comparator'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <ArrowLeftRight className="w-4 h-4" />
-              <span>Comparador Linux vs Win</span>
-            </button>
-
-            <button
               onClick={() => setActiveTab('dual-lab')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'dual-lab'
                   ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
               <FolderGit2 className="w-4 h-4" />
-              <span>Dual-Shell Playground</span>
+              <span>Dual-Shell</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('comparator')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'comparator'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+              <span>Comparador</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('syscalls')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'syscalls'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Cpu className="w-4 h-4 text-cyan-400" />
+              <span>Syscalls (Ring 0)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('edr')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'edr'
+                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <ShieldAlert className="w-4 h-4 text-rose-400" />
+              <span>EDR SOC</span>
+              {activeAlertsCount > 0 && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              )}
             </button>
           </nav>
 
@@ -128,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Progresso de Tarefas */}
             <div className="hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{progressPercent}% Concluído</span>
+              <span>{progressPercent}%</span>
             </div>
 
             {/* Botão de Certificado / Conquistas */}

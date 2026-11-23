@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "esbuild tests/engines.test.ts --bundle --platform=node --outfile=dist/test_bundle.cjs && node dist/test_bundle.cjs"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

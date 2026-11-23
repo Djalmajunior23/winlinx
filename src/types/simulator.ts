@@ -25,6 +25,7 @@ export interface OSProcess {
   status: 'running' | 'sleeping' | 'stopped';
   isSuspicious?: boolean;
   description?: string;
+  networkPort?: number;
 }
 
 export interface OSService {
@@ -49,10 +50,37 @@ export interface OSLogEntry {
   isSuspicious?: boolean;
 }
 
+export interface SyscallTrace {
+  id: string;
+  timestamp: string;
+  os: OSType;
+  syscall: string; // ex: "openat", "execve", "read", "clone", "NtOpenFile", "NtCreateProcessEx"
+  subsystem: 'Memory' | 'FileSystem' | 'Process' | 'Network' | 'Security';
+  parameters: string;
+  returnCode: number | string;
+  ringLevel: 'Ring 3 (User Mode)' | 'Ring 0 (Kernel Mode)';
+  explanation: string;
+}
+
+export interface EDRAlert {
+  id: string;
+  timestamp: string;
+  os: OSType;
+  ruleName: string;
+  severity: 'BAIXA' | 'MÉDIA' | 'ALTA' | 'CRÍTICA';
+  mitreId: string;
+  mitreTechnique: string;
+  triggeredCommand: string;
+  analystSummary: string;
+  remediationAdvice: string;
+}
+
 export interface CommandResult {
   output: string;
   error?: string;
   exitCode: number;
+  syscalls?: SyscallTrace[];
+  edrAlerts?: EDRAlert[];
   stateChanges?: {
     filesModified?: string[];
     processKilled?: number;

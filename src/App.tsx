@@ -5,14 +5,22 @@ import { CurriculumView } from './components/CurriculumView';
 import { LabRunnerView } from './components/LabRunnerView';
 import { CommandComparator } from './components/CommandComparator';
 import { DualTerminalPlayground } from './components/DualTerminalPlayground';
+import { SyscallTracerView } from './components/SyscallTracerView';
+import { EDRTelemetryView } from './components/EDRTelemetryView';
 import { CertificateModal } from './components/CertificateModal';
 import { PRACTICAL_LABS } from './data/labs';
+import { SyscallTrace, EDRAlert } from './types/simulator';
+import { WinLinxEventBridge } from './core/eventBridge';
 import { Shield, ExternalLink, Terminal, Flame, BookOpen } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeLabId, setActiveLabId] = useState<string>(PRACTICAL_LABS[0].id);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
+
+  // Estados de telemetria sênior em tempo real
+  const [syscalls, setSyscalls] = useState<SyscallTrace[]>([]);
+  const [edrAlerts, setEdrAlerts] = useState<EDRAlert[]>([]);
 
   // Progresso do aluno com persistência local
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
@@ -36,6 +44,12 @@ export function App() {
   const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
+    // Inicializa o Event Bridge de integração com CiberLab/CiberSim
+    const bridge = WinLinxEventBridge.getInstance();
+    bridge.notifyReady();
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem('winlinx_completed_tasks', JSON.stringify(Array.from(completedTasks)));
     } catch (e) {
@@ -51,6 +65,20 @@ export function App() {
     }
   }, [flagsFound]);
 
+  const handleRecordSyscalls = (newTraces: SyscallTrace[]) => {
+    setSyscalls(prev => [...prev, ...newTraces]);
+  };
+
+  const handleRecordEDRAlerts = (newAlerts: EDRAlert[]) => {
+    setEdrAlerts(prev => [...prev, ...newAlerts]);
+    if (newAlerts.length > 0) {
+      const critical = newAlerts.find(a => a.severity === 'CRÍTICA' || a.severity === 'ALTA');
+      if (critical) {
+        showNotification(`🚨 [EDR SOC ALERT] ${critical.ruleName} (${critical.mitreId})`);
+      }
+    }
+  };
+
   const handleTaskCompleted = (taskId: string, flag?: string) => {
     setCompletedTasks(prev => {
       const next = new Set(prev);
@@ -58,8 +86,12 @@ export function App() {
       return next;
     });
 
+    const bridge = WinLinxEventBridge.getInstance();
+    bridge.notifyTaskCompleted(taskId, 'os-lab', flag);
+
     if (flag && !flagsFound.includes(flag)) {
       setFlagsFound(prev => [...prev, flag]);
+      bridge.notifyFlagCaptured(flag);
       showNotification(`🚩 Flag Capturada: ${flag}`);
     } else {
       showNotification('✅ Tarefa do laboratório concluída com sucesso!');
@@ -69,6 +101,7 @@ export function App() {
   const handleCaptureFlag = (flag: string) => {
     if (!flagsFound.includes(flag)) {
       setFlagsFound(prev => [...prev, flag]);
+      WinLinxEventBridge.getInstance().notifyFlagCaptured(flag);
       showNotification(`🚩 Flag Capturada no Playground: ${flag}`);
     }
   };
@@ -110,6 +143,7 @@ export function App() {
         completedTasksCount={completedTasks.size}
         totalTasksCount={totalTasksCount}
         flagsFoundCount={flagsFound.length}
+        activeAlertsCount={edrAlerts.length}
       />
 
       {/* Conteúdo Principal */}
@@ -132,6 +166,16 @@ export function App() {
             activeLabId={activeLabId}
             onTaskCompleted={handleTaskCompleted}
             completedTasks={completedTasks}
+            onRecordSyscalls={handleRecordSyscalls}
+            onRecordEDRAlerts={handleRecordEDRAlerts}
+          />
+        )}
+
+        {activeTab === 'dual-lab' && (
+          <DualTerminalPlayground 
+            onCaptureFlag={handleCaptureFlag}
+            onRecordSyscalls={handleRecordSyscalls}
+            onRecordEDRAlerts={handleRecordEDRAlerts}
           />
         )}
 
@@ -139,8 +183,18 @@ export function App() {
           <CommandComparator />
         )}
 
-        {activeTab === 'dual-lab' && (
-          <DualTerminalPlayground onCaptureFlag={handleCaptureFlag} />
+        {activeTab === 'syscalls' && (
+          <SyscallTracerView
+            syscalls={syscalls}
+            onClearSyscalls={() => setSyscalls([])}
+          />
+        )}
+
+        {activeTab === 'edr' && (
+          <EDRTelemetryView
+            alerts={edrAlerts}
+            onClearAlerts={() => setEdrAlerts([])}
+          />
         )}
       </main>
 
@@ -157,8 +211,8 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
             <Shield className="w-4 h-4 text-cyan-400" />
-            <span className="font-semibold text-slate-400">WinLinx OS Simulator</span>
-            <span>• Ambiente Integrado à Trilha de Cibersegurança</span>
+            <span className="font-semibold text-slate-400">WinLinx OS Cybersecurity Simulator</span>
+            <span>• Microfrontend Ready for CiberLab Ecosystem</span>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -169,10 +223,16 @@ export function App() {
               Módulos Curriculares
             </button>
             <button
-              onClick={() => setActiveTab('comparator')}
+              onClick={() => setActiveTab('syscalls')}
               className="hover:text-slate-300 transition"
             >
-              Tabela Comparativa
+              Syscalls (Ring 0)
+            </button>
+            <button
+              onClick={() => setActiveTab('edr')}
+              className="hover:text-slate-300 transition"
+            >
+              EDR Telemetria
             </button>
             <button
               onClick={() => setIsCertificateOpen(true)}

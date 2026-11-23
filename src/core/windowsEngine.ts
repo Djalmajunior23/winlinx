@@ -1,20 +1,27 @@
-import { CommandResult, FileNode, OSProcess } from '../types/simulator';
+import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert } from '../types/simulator';
 
 export class WindowsSimulatorEngine {
   private currentDir: string = 'C:\\Users\\Aluno';
   private currentUser: string = 'ALUNO-PC\\Aluno';
   private rootFS: FileNode;
+  private envVars: Record<string, string> = {
+    COMPUTERNAME: 'WINLINX-PC',
+    USERNAME: 'Aluno',
+    USERPROFILE: 'C:\\Users\\Aluno',
+    SYSTEMROOT: 'C:\\Windows',
+    PSModulePath: 'C:\\Program Files\\WindowsPowerShell\\Modules;C:\\Windows\\system32\\WindowsPowerShell\\v1.0\\Modules'
+  };
+
   private processes: OSProcess[] = [
     { pid: 4, name: 'System', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.8, memoryMb: 45.0, path: 'ntoskrnl.exe', status: 'running' },
     { pid: 512, name: 'smss.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.0, memoryMb: 4.2, path: 'C:\\Windows\\System32\\smss.exe', status: 'running' },
     { pid: 688, name: 'csrss.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.1, memoryMb: 6.8, path: 'C:\\Windows\\System32\\csrss.exe', status: 'running' },
     { pid: 740, name: 'wininit.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.0, memoryMb: 5.1, path: 'C:\\Windows\\System32\\wininit.exe', status: 'running' },
-    { pid: 812, name: 'services.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.2, memoryMb: 12.0, path: 'C:\\Windows\\System32\\services.exe', status: 'running' },
+    { pid: 812, name: 'services.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.2, memoryMb: 12.0, path: 'C:\\Windows\\System32\\services.exe', status: 'running', networkPort: 135 },
     { pid: 840, name: 'lsass.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.5, memoryMb: 28.5, path: 'C:\\Windows\\System32\\lsass.exe', status: 'running' },
-    { pid: 980, name: 'svchost.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.3, memoryMb: 18.2, path: 'C:\\Windows\\System32\\svchost.exe', status: 'running' },
+    { pid: 980, name: 'svchost.exe', user: 'NT AUTHORITY\\SYSTEM', cpu: 0.3, memoryMb: 18.2, path: 'C:\\Windows\\System32\\svchost.exe', status: 'running', networkPort: 3389 },
     { pid: 1450, name: 'explorer.exe', user: 'ALUNO-PC\\Aluno', cpu: 1.1, memoryMb: 65.4, path: 'C:\\Windows\\explorer.exe', status: 'running' },
     { pid: 2110, name: 'powershell.exe', user: 'ALUNO-PC\\Aluno', cpu: 0.4, memoryMb: 48.0, path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', status: 'running' },
-    // Processo suspeito não assinado rodando a partir de AppData ou Temp
     {
       pid: 4992,
       name: 'updater_svc.exe',
@@ -24,7 +31,8 @@ export class WindowsSimulatorEngine {
       path: 'C:\\Program Files\\Custom App\\service.exe',
       status: 'running',
       isSuspicious: true,
-      description: 'Binário executado a partir de caminho sem aspas e gravável por Users comuns'
+      description: 'Binário executado a partir de caminho sem aspas e gravável por Users comuns',
+      networkPort: 8089
     }
   ];
 
@@ -40,28 +48,166 @@ export class WindowsSimulatorEngine {
     return this.currentUser;
   }
 
+  public getAutoCompleteOptions(prefix: string): string[] {
+    const tokens = prefix.split(' ');
+    const lastToken = tokens[tokens.length - 1];
+
+    if (tokens.length === 1) {
+      const commands = [
+        'Get-Process', 'ps', 'Get-Service', 'Get-ChildItem', 'dir', 'ls',
+        'Get-Content', 'type', 'cat', 'Get-Location', 'pwd', 'Set-Location', 'cd',
+        'whoami', 'icacls', 'netstat', 'sc', 'sc.exe', 'Get-EventLog',
+        'Get-ScheduledTask', 'Stop-Process', 'taskkill', 'New-Item', 'Remove-Item', 'cls', 'clear', 'help'
+      ];
+      return commands.filter(c => c.toLowerCase().startsWith(lastToken.toLowerCase()));
+    }
+
+    const currentNode = this.getNodeByWindowsPath(this.currentDir);
+    if (!currentNode || !currentNode.children) return [];
+
+    return Object.keys(currentNode.children)
+      .filter(name => name.toLowerCase().startsWith(lastToken.toLowerCase()))
+      .map(name => {
+        const full = [...tokens.slice(0, -1), name].join(' ');
+        return full;
+      });
+  }
+
   public execute(cmdLine: string): CommandResult {
     const trimmed = cmdLine.trim();
     if (!trimmed) {
-      return { output: '', exitCode: 0 };
+      return { output: '', exitCode: 0, syscalls: [], edrAlerts: [] };
+    }
+
+    const syscalls: SyscallTrace[] = [];
+    const edrAlerts: EDRAlert[] = [];
+
+    this.inspectEDR(trimmed, edrAlerts);
+
+    // Suporte a Redirecionamento (> e >>)
+    if (trimmed.includes('>')) {
+      const isAppend = trimmed.includes('>>');
+      const parts = trimmed.split(isAppend ? '>>' : '>');
+      const commandPart = parts[0].trim();
+      const targetFilePath = parts[1].trim().replace(/['"]/g, '');
+
+      const cmdExec = this.executeCommandInternal(commandPart, syscalls);
+      const writeResult = this.writeFileInternal(targetFilePath, cmdExec.output, isAppend, syscalls);
+
+      return {
+        output: writeResult.error || '',
+        exitCode: writeResult.error ? 1 : 0,
+        syscalls,
+        edrAlerts,
+        stateChanges: {
+          filesModified: [targetFilePath]
+        }
+      };
     }
 
     // Suporte a elevação simulada "Run as Administrator"
     if (trimmed.toLowerCase().startsWith('start-process powershell -verb runas') || trimmed.toLowerCase() === 'elevate') {
       this.currentUser = 'NT AUTHORITY\\SYSTEM';
+      syscalls.push({
+        id: Math.random().toString(),
+        timestamp: new Date().toLocaleTimeString(),
+        os: 'windows',
+        syscall: 'NtDuplicateToken / SeImpersonatePrivilege',
+        subsystem: 'Security',
+        parameters: 'TokenElevationTypeFull',
+        returnCode: 0,
+        ringLevel: 'Ring 0 (Kernel Mode)',
+        explanation: 'O subsistema de segurança LSASS e o Kernel do Windows alocam um token primário com Integrity Level SYSTEM.'
+      });
+
       return {
         output: 'PS C:\\Windows\\System32> Sessão elevada iniciada com privilégios de NT AUTHORITY\\SYSTEM / Administrator.',
-        exitCode: 0
+        exitCode: 0,
+        syscalls,
+        edrAlerts
       };
     }
 
-    return this.executeCommandInternal(trimmed);
+    const res = this.executeCommandInternal(trimmed, syscalls);
+    return { ...res, syscalls, edrAlerts };
   }
 
-  private executeCommandInternal(cmdLine: string): CommandResult {
-    const tokens = cmdLine.split(' ').filter(Boolean);
+  private inspectEDR(cmdLine: string, edrAlerts: EDRAlert[]) {
+    const lower = cmdLine.toLowerCase();
+
+    if (lower.includes('whoami /priv')) {
+      edrAlerts.push({
+        id: Math.random().toString(),
+        timestamp: new Date().toLocaleTimeString(),
+        os: 'windows',
+        ruleName: 'Enumeração de Privilégios de Token Local (whoami /priv)',
+        severity: 'MÉDIA',
+        mitreId: 'T1087.001',
+        mitreTechnique: 'Account Discovery: Local Account Privilege Discovery',
+        triggeredCommand: cmdLine,
+        analystSummary: 'Comando inspecionou se privilégios de alta criticidade como SeDebugPrivilege ou SeImpersonatePrivilege estão concedidos.',
+        remediationAdvice: 'Garantir que usuários padrão não façam parte do grupo Local Administrators.'
+      });
+    }
+
+    if (lower.includes('sc qc winvulnerableupdater') || (lower.includes('sc qc') && lower.includes('service.exe'))) {
+      edrAlerts.push({
+        id: Math.random().toString(),
+        timestamp: new Date().toLocaleTimeString(),
+        os: 'windows',
+        ruleName: 'Inspeção de Serviço com Potencial Unquoted Service Path',
+        severity: 'ALTA',
+        mitreId: 'T1574.009',
+        mitreTechnique: 'Hijack Execution Flow: Path Interception by Unquoted Path',
+        triggeredCommand: cmdLine,
+        analystSummary: 'Comando consultou a configuração de um serviço com caminho de executável sem aspas e contendo espaços.',
+        remediationAdvice: 'Envolver caminhos binários de serviços entre aspas duplas no Registro (ImagePath).'
+      });
+    }
+
+    if (lower.includes('get-eventlog') || lower.includes('security.evtx')) {
+      edrAlerts.push({
+        id: Math.random().toString(),
+        timestamp: new Date().toLocaleTimeString(),
+        os: 'windows',
+        ruleName: 'Consulta Direta a Eventos de Auditoria e Logon (Event ID 4624/4625)',
+        severity: 'BAIXA',
+        mitreId: 'T1078',
+        mitreTechnique: 'Valid Accounts & Log Inspection',
+        triggeredCommand: cmdLine,
+        analystSummary: 'Analista de segurança ou atacante consultando canais de auditoria de autenticação.',
+        remediationAdvice: 'Centralizar eventos do Security.evtx em um SIEM para evitar adulteração local.'
+      });
+    }
+  }
+
+  private parseArgs(cmdLine: string): string[] {
+    const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
+    const matches: string[] = [];
+    let match;
+    while ((match = regex.exec(cmdLine)) !== null) {
+      matches.push(match[1] ?? match[2] ?? match[0]);
+    }
+    return matches;
+  }
+
+  private executeCommandInternal(cmdLine: string, syscalls: SyscallTrace[]): CommandResult {
+    const tokens = this.parseArgs(cmdLine);
+    if (tokens.length === 0) return { output: '', exitCode: 0 };
     const cmd = tokens[0].toLowerCase();
     const args = tokens.slice(1);
+
+    syscalls.push({
+      id: Math.random().toString(),
+      timestamp: new Date().toLocaleTimeString(),
+      os: 'windows',
+      syscall: `NtCreateUserProcess("${cmd}")`,
+      subsystem: 'Process',
+      parameters: args.join(' '),
+      returnCode: 0,
+      ringLevel: 'Ring 0 (Kernel Mode)',
+      explanation: 'O Executive do Windows cria o objeto EPROCESS e aloca a PEB (Process Environment Block).'
+    });
 
     switch (cmd) {
       case 'cls':
@@ -108,6 +254,57 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         return { output: this.currentUser, exitCode: 0 };
       }
 
+      case 'stop-process':
+      case 'taskkill': {
+        let pid = 0;
+        const idFlagIdx = args.findIndex(a => a.toLowerCase() === '-id' || a.toLowerCase() === '/pid');
+        if (idFlagIdx !== -1 && args[idFlagIdx + 1]) {
+          pid = parseInt(args[idFlagIdx + 1], 10);
+        } else {
+          const numToken = args.find(a => !isNaN(parseInt(a, 10)) && parseInt(a, 10) > 0);
+          if (numToken) {
+            pid = parseInt(numToken, 10);
+          }
+        }
+
+        if (!pid) {
+          return { output: 'Stop-Process : informe o PID do processo. Exemplo: Stop-Process -Id 4992', exitCode: 1 };
+        }
+
+        const procIdx = this.processes.findIndex(p => p.pid === pid);
+        if (procIdx === -1) {
+          return { output: `Stop-Process : Não é possível localizar um processo com o identificador de processo ${pid}.`, exitCode: 1 };
+        }
+
+        const proc = this.processes[procIdx];
+        this.processes.splice(procIdx, 1);
+
+        syscalls.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleTimeString(),
+          os: 'windows',
+          syscall: `NtTerminateProcess(Handle, 0)`,
+          subsystem: 'Process',
+          parameters: `PID=${pid}`,
+          returnCode: 0,
+          ringLevel: 'Ring 0 (Kernel Mode)',
+          explanation: 'O Kernel do Windows cancela todas as threads do processo e fecha os Handles de memória aberta.'
+        });
+
+        if (proc.pid === 4992 || proc.name === 'updater_svc.exe') {
+          return {
+            output: `[DEFESA] Processo suspeito ${proc.name} (PID ${pid}) terminado com sucesso! Porta 8089 fechada.`,
+            exitCode: 0,
+            stateChanges: {
+              processKilled: pid,
+              flagDiscovered: 'FLAG{WINLINX_WINDOWS_MALICIOUS_PROCESS_TERMINATED_2026}'
+            }
+          };
+        }
+
+        return { output: `Processo ${proc.name} (PID ${pid}) finalizado.`, exitCode: 0 };
+      }
+
       case 'cd':
       case 'set-location': {
         const target = args[0] || 'C:\\Users\\Aluno';
@@ -132,6 +329,18 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         const target = args.find(a => !a.startsWith('-') && !a.startsWith('/')) || this.currentDir;
         const normalized = this.normalizeWindowsPath(target);
         const node = this.getNodeByWindowsPath(normalized);
+
+        syscalls.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleTimeString(),
+          os: 'windows',
+          syscall: `NtQueryDirectoryFile(Handle, FileBothDirectoryInformation)`,
+          subsystem: 'FileSystem',
+          parameters: `Path="${normalized}"`,
+          returnCode: 0,
+          ringLevel: 'Ring 0 (Kernel Mode)',
+          explanation: 'O driver do sistema de arquivos NTFS (ntfs.sys) retorna as entradas da Master File Table (MFT).'
+        });
 
         if (!node) {
           return { output: `Get-ChildItem : Não foi possível encontrar o caminho '${target}'.`, exitCode: 1 };
@@ -169,6 +378,19 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         }
         const normalized = this.normalizeWindowsPath(args[0]);
         const node = this.getNodeByWindowsPath(normalized);
+
+        syscalls.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleTimeString(),
+          os: 'windows',
+          syscall: `NtOpenFile(Handle, FILE_READ_DATA, DACL_CHECK)`,
+          subsystem: 'FileSystem',
+          parameters: `Path="${normalized}"`,
+          returnCode: 0,
+          ringLevel: 'Ring 0 (Kernel Mode)',
+          explanation: 'O Security Reference Monitor (SRM) do kernel valida a DACL do arquivo com o token de segurança da thread.'
+        });
+
         if (!node) {
           return { output: `Get-Content : Não é possível localizar o arquivo '${args[0]}'.`, exitCode: 1 };
         }
@@ -193,17 +415,20 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
       }
 
       case 'netstat': {
-        return {
-          output: `Conexões Ativas
-
-  Proto  Endereço Local          Endereço Externo        Estado          PID
-  TCP    0.0.0.0:135             0.0.0.0:0               LISTENING       812
-  TCP    0.0.0.0:445             0.0.0.0:0               LISTENING       4
-  TCP    0.0.0.0:3389            0.0.0.0:0               LISTENING       980
-  TCP    0.0.0.0:8089            0.0.0.0:0               LISTENING       4992  <-- [Serviço Não Homologado]
-  TCP    192.168.1.50:49210      198.51.100.22:443       ESTABLISHED     1450`,
-          exitCode: 0
-        };
+        const hasSuspicious = this.processes.some(p => p.pid === 4992);
+        const lines = [
+          'Conexões Ativas',
+          '',
+          '  Proto  Endereço Local          Endereço Externo        Estado          PID',
+          '  TCP    0.0.0.0:135             0.0.0.0:0               LISTENING       812',
+          '  TCP    0.0.0.0:445             0.0.0.0:0               LISTENING       4',
+          '  TCP    0.0.0.0:3389            0.0.0.0:0               LISTENING       980'
+        ];
+        if (hasSuspicious) {
+          lines.push('  TCP    0.0.0.0:8089            0.0.0.0:0               LISTENING       4992  <-- [Serviço Não Homologado]');
+        }
+        lines.push('  TCP    192.168.1.50:49210      198.51.100.22:443       ESTABLISHED     1450');
+        return { output: lines.join('\n'), exitCode: 0 };
       }
 
       case 'icacls': {
@@ -211,13 +436,23 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         const normalized = this.normalizeWindowsPath(target);
         const node = this.getNodeByWindowsPath(normalized);
 
+        syscalls.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleTimeString(),
+          os: 'windows',
+          syscall: `NtQuerySecurityObject(Handle, DACL_SECURITY_INFORMATION)`,
+          subsystem: 'Security',
+          parameters: `Path="${normalized}"`,
+          returnCode: 0,
+          ringLevel: 'Ring 0 (Kernel Mode)',
+          explanation: 'O Kernel lê a estrutura de dados SECURITY_DESCRIPTOR armazenada nos atributos NTFS do arquivo.'
+        });
+
         if (!node) {
           return { output: `${target}: O sistema não pode encontrar o arquivo especificado.`, exitCode: 1 };
         }
 
-        // Se checar C:\Program Files\Custom App
         if (normalized.includes('Custom App') || node.name === 'Custom App') {
-          // Se o usuário passou comando de correção: ex: icacls "C:\Program Files\Custom App" /remove "BUILTIN\Users"
           if (cmdLine.includes('/remove') || cmdLine.includes('/grant:r')) {
             node.permissions = 'NTFS: BUILTIN\\Administrators:(F), NT AUTHORITY\\SYSTEM:(F), BUILTIN\\Users:(RX)';
             return {
@@ -308,17 +543,21 @@ NOME_DO_SERVIÇO: ${svcName}
         };
       }
 
+      case 'echo':
+      case 'write-output': {
+        return { output: args.join(' ').replace(/^['"]|['"]$/g, ''), exitCode: 0 };
+      }
+
       case 'help':
       case 'get-help': {
         return {
-          output: `Comandos suportados no Simulador Windows PowerShell (WinLinx):
-- Navegação: pwd, Get-Location, cd, dir, ls, Get-ChildItem, cat, type, Get-Content
-- Identidade: whoami, whoami /priv, whoami /all, elevate
-- Processos & Rede: Get-Process, ps, netstat -ano
+          output: `Comandos suportados no Simulador Windows PowerShell (WinLinx Enterprise):
+- VFS & Arquivos: pwd, Get-Location, cd, dir, ls, Get-ChildItem, cat, type, Get-Content, echo [> | >>]
+- Identidade & Token: whoami, whoami /priv, whoami /all, elevate
+- Processos & Rede: Get-Process, Stop-Process -Id <PID>, taskkill /PID <PID>, netstat -ano
 - Segurança & DACL: icacls <caminho>, icacls <caminho> /remove "BUILTIN\\Users"
 - Serviços & Persistência: Get-Service, sc qc <serviço>, Get-ScheduledTask
-- Logs: Get-EventLog -LogName Security
-- Utilitários: cls, clear, echo`,
+- Auditoria: Get-EventLog -LogName Security`,
           exitCode: 0
         };
       }
@@ -329,6 +568,51 @@ NOME_DO_SERVIÇO: ${svcName}
           exitCode: 1
         };
     }
+  }
+
+  private writeFileInternal(pathStr: string, content: string, isAppend: boolean, syscalls: SyscallTrace[]): { error?: string } {
+    const normalized = this.normalizeWindowsPath(pathStr);
+    const parts = normalized.split('\\');
+    const fileName = parts.pop();
+    const parentPath = parts.join('\\');
+    const parent = this.getNodeByWindowsPath(parentPath);
+
+    if (!parent || parent.type !== 'dir') {
+      return { error: `Set-Content : Não foi possível localizar o diretório '${parentPath}'.` };
+    }
+
+    if (!parent.children) parent.children = {};
+
+    if (fileName) {
+      if (parent.children[fileName]) {
+        const existing = parent.children[fileName];
+        existing.content = isAppend ? (existing.content + '\r\n' + content) : content;
+        existing.size = (existing.content || '').length;
+      } else {
+        parent.children[fileName] = {
+          name: fileName,
+          type: 'file',
+          permissions: 'NTFS: BUILTIN\\Users:(RW), Administrators:(F)',
+          owner: this.currentUser,
+          content,
+          size: content.length
+        };
+      }
+
+      syscalls.push({
+        id: Math.random().toString(),
+        timestamp: new Date().toLocaleTimeString(),
+        os: 'windows',
+        syscall: `NtWriteFile(Handle, Buffer, Length)`,
+        subsystem: 'FileSystem',
+        parameters: `Bytes=${content.length}`,
+        returnCode: 0,
+        ringLevel: 'Ring 0 (Kernel Mode)',
+        explanation: 'O Kernel grava os dados na cache do sistema e delega ao driver ntfs.sys a atualização dos clusters de disco.'
+      });
+    }
+
+    return {};
   }
 
   private normalizeWindowsPath(pathStr: string): string {
@@ -358,7 +642,6 @@ NOME_DO_SERVIÇO: ${svcName}
 
     for (const part of parts) {
       if (!current || !current.children) return null;
-      // Case-insensitive lookup for Windows
       const childKeys: string[] = Object.keys(current.children);
       const matchedKey: string | undefined = childKeys.find(k => k.toLowerCase() === part.toLowerCase());
       if (!matchedKey) return null;
