@@ -1,4 +1,4 @@
-import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert } from '../types/simulator';
+import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 
 export class LinuxSimulatorEngine {
   private currentDir: string = '/home/aluno';
@@ -218,13 +218,49 @@ export class LinuxSimulatorEngine {
   public execute(cmdLine: string): CommandResult {
     const trimmed = cmdLine.trim();
     if (!trimmed) {
-      return { output: '', exitCode: 0, syscalls: [], edrAlerts: [] };
+      return { output: '', exitCode: 0, syscalls: [], edrAlerts: [], forensicLogs: [] };
     }
 
     const syscalls: SyscallTrace[] = [];
     const edrAlerts: EDRAlert[] = [];
+    const forensicLogs: ForensicLogRecord[] = [];
+    const timestamp = new Date().toLocaleTimeString();
 
     this.inspectEDR(trimmed, edrAlerts);
+
+    // Auditoria de Kernel Linux (auditd SYSCALL log)
+    const baseCommand = trimmed.split(' ')[0];
+    forensicLogs.push({
+      id: Math.random().toString(),
+      timestamp,
+      os: 'linux',
+      source: 'audit.log',
+      facility: 'SYSCALL',
+      severity: 'INFO',
+      user: this.currentUser,
+      computer: 'WINLINX-LNX-01',
+      processName: baseCommand,
+      commandLine: trimmed,
+      details: `type=SYSCALL arch=x86_64 syscall=59 (execve) comm="${baseCommand}" exe="/usr/bin/${baseCommand}" ppid=1042 pid=${Math.floor(1200 + Math.random() * 8000)} auid=1000 uid=${this.currentUser === 'root' ? 0 : 1000} euid=${this.currentUser === 'root' ? 0 : 1000} success=yes exit=0`,
+      mitreRef: edrAlerts.length > 0 ? edrAlerts[0].mitreId : undefined
+    });
+
+    if (trimmed.startsWith('sudo') || trimmed.includes('/etc/shadow') || trimmed.includes('su -')) {
+      forensicLogs.push({
+        id: Math.random().toString(),
+        timestamp,
+        os: 'linux',
+        source: 'auth.log',
+        facility: 'AUTH',
+        severity: trimmed.includes('/etc/shadow') ? 'CRITICAL' : 'WARNING',
+        user: this.currentUser,
+        computer: 'WINLINX-LNX-01',
+        processName: 'sudo/pam',
+        commandLine: trimmed,
+        details: `pam_unix(sudo:session): session opened for user root(uid=0) by ${this.currentUser}(uid=1000) - cmd: ${trimmed}`,
+        mitreRef: 'T1548.003'
+      });
+    }
 
     if (trimmed.includes('>') && !trimmed.includes('2>')) {
       const isAppend = trimmed.includes('>>');
@@ -240,6 +276,7 @@ export class LinuxSimulatorEngine {
         exitCode: writeResult.error ? 1 : 0,
         syscalls,
         edrAlerts,
+        forensicLogs,
         stateChanges: {
           filesModified: [targetFilePath]
         }
@@ -268,7 +305,8 @@ export class LinuxSimulatorEngine {
           output: 'Autenticação bem-sucedida. Sessão elevada para root (UID=0).', 
           exitCode: 0,
           syscalls,
-          edrAlerts
+          edrAlerts,
+          forensicLogs
         };
       }
 
@@ -276,7 +314,7 @@ export class LinuxSimulatorEngine {
       this.currentUser = 'root';
       const res = this.executeCommandInternal(rest, syscalls);
       this.currentUser = prevUser;
-      return { ...res, syscalls, edrAlerts };
+      return { ...res, syscalls, edrAlerts, forensicLogs };
     }
 
     if (trimmed.includes('|')) {
@@ -292,11 +330,11 @@ export class LinuxSimulatorEngine {
           currentOutput = res.output;
         }
       }
-      return { output: currentOutput, exitCode: 0, syscalls, edrAlerts };
+      return { output: currentOutput, exitCode: 0, syscalls, edrAlerts, forensicLogs };
     }
 
     const execResult = this.executeCommandInternal(trimmed, syscalls);
-    return { ...execResult, syscalls, edrAlerts };
+    return { ...execResult, syscalls, edrAlerts, forensicLogs };
   }
 
   private inspectEDR(cmdLine: string, edrAlerts: EDRAlert[]) {
@@ -844,6 +882,134 @@ ${this.firewallBlockedPorts.map(p => `DROP       tcp  --  0.0.0.0/0            0
       case 'echo': {
         const text = args.join(' ').replace(/^['"]|['"]$/g, '');
         return { output: text, exitCode: 0 };
+      }
+
+      case 'explain': {
+        const topic = (args[0] || '').toLowerCase();
+        if (!topic) {
+          return {
+            output: `[WinLinx Kernel Copilot] Uso: explain <conceito | syscall | processo>
+Exemplos:
+  explain ptrace
+  explain lsass
+  explain aslr
+  explain dep
+  explain fork
+  explain capabilities
+  explain suid
+  explain ufw`,
+            exitCode: 0
+          };
+        }
+
+        const explanations: Record<string, string> = {
+          ptrace: `[Kernel Deep-Dive: ptrace(2)]
+• Definição: Syscall que permite a um processo pai controlar/inspecionar a execução de outro processo (base do GDB, strace e ltrace).
+• Ring Level: Ring 0 (Kernel Mode).
+• Risco Ofensivo: Permite injeção de código em processos em execução (Process Injection / Shellcode Injection).
+• Defesa & Mitigação: Yama LSM (cat /proc/sys/kernel/yama/ptrace_scope). Nível 1 restringe ptrace apenas para processos descendentes.`,
+
+          lsass: `[Kernel Deep-Dive: lsass.exe (Local Security Authority)]
+• Definição: Processo do Windows responsável por gerenciar a política de segurança, autenticação e credenciais em memória (NTLM/Kerberos).
+• Alvo de Ataque: Dumping de senhas com Mimikatz (T1003.001) através da API OpenProcess com PROCESS_VM_READ.
+• Defesa no Linux vs Windows: No Linux, senhas residem em /etc/shadow com hashes salgados. No Windows, ative RunAsPPL para isolar o processo em Protected Process Light.`,
+
+          aslr: `[Segurança de Memória: ASLR (Address Space Layout Randomization)]
+• Definição: O Kernel randomiza a cada execução os endereços de base da Pilha (Stack), Heap, Bibliotecas Compartilhadas (.so / DLLs) e Executável.
+• Risco Ofensivo: Sem ASLR, invasores usam endereços fixos para pular diretamente para shellcodes injetados ou funções libc (ret2libc).
+• No Linux: Configurado via /proc/sys/kernel/randomize_va_space (0=desativado, 2=randomização total).`,
+
+          dep: `[Segurança de Memória: DEP / NX Bit (Data Execution Prevention)]
+• Definição: Recurso de Hardware/CPU (bit No-Execute nas entradas da tabela de páginas MMU) gerido pelo Kernel que proíbe execução de instruções em regiões de dados (Stack e Heap - W^X: Write XOR Execute).
+• Violação: Quando um ponteiro de instrução (RIP/EIP) aponta para a pilha, o processador gera uma exceção de Falha de Página (Segmentation Fault SIGSEGV ou EXCEPTION_ACCESS_VIOLATION 0xC0000005).`,
+
+          fork: `[Ciclo de Vida de Processos: fork() vs execve()]
+• Linux (Monolítico): fork() clona o processo chamador via Copy-On-Write (COW), criando um novo PID compartilhando páginas de memória até a primeira escrita. Em seguida, execve() substitui a imagem pelo novo binário ELF.
+• Windows NT (Híbrido): Não há fork() nativo. O Windows utiliza a chamada CreateProcess(), que cria o processo e sua thread primária de forma estruturada e atômica.`,
+
+          capabilities: `[Linux Privileges: Linux Capabilities]
+• Definição: Divisão do poder do superusuário 'root' (UID 0) em unidades discretas de privilégio (ex: CAP_NET_BIND_SERVICE, CAP_SETUID, CAP_SYS_ADMIN).
+• Vetor Ofensivo: Binários com cap_setuid+ep permitem a qualquer usuário alterar seu UID para 0 sem a necessidade do bit SUID tradicional!
+• Comandos: getcap -r / (auditar) e setcap -r <arquivo> (remover).`,
+
+          suid: `[Controle de Acesso: SUID (Set User ID - Bit 4000)]
+• Definição: Permissão especial que faz o executável rodar com os privilégios do proprietário do arquivo (geralmente root) em vez do usuário que o disparou.
+• Vetor de Ataque (GTFOBins): Se utilitários como find, vim, cp ou bash tiverem o bit SUID ativo, usuários não privilegiados podem escapar para um shell root instantaneamente.`,
+
+          ufw: `[Defesa de Rede: Netfilter & UFW (Uncomplicated Firewall)]
+• Definição: O Netfilter opera nos hooks do Kernel Linux inspecionando pacotes na camada IP (PREROUTING, INPUT, FORWARD, OUTPUT, POSTROUTING).
+• UFW: Interface simplificada de user-mode que escreve regras nas tabelas do Netfilter para descartar tráfego malicioso (ex: conexões C2 na porta 4444).`
+        };
+
+        const explanation = explanations[topic] || `[Conceito de SO: ${topic}]
+Recurso essencial para a arquitetura de sistemas operacionais e segurança da informação.
+Digite 'explain' sem parâmetros para ver os tópicos de Kernel disponíveis.`;
+
+        return { output: explanation, exitCode: 0 };
+      }
+
+      case 'hint': {
+        const hintText = `💡 [Dica do Mentor Kernel WinLinx]
+• Para explorar processos maliciosos: use 'ps aux' ou 'pstree' e observe executáveis em locais atípicos (/tmp/.hidden).
+• Para derrubar processos maliciosos e conexões suspeitas: 'kill -9 <PID>' e 'ufw deny <PORTA>'.
+• Para inspecionar permissões de alto privilégio: 'find / -perm -4000 2>/dev/null' ou 'getcap -r / 2>/dev/null'.
+• Para entender qualquer conceito: execute 'explain <conceito>'.`;
+        return { output: hintText, exitCode: 0 };
+      }
+
+      case 'man': {
+        const targetCmd = (args[0] || '').toLowerCase();
+        if (!targetCmd) {
+          return { output: 'Qual página de manual você deseja? Exemplo: man ps, man kill, man ufw, man chmod', exitCode: 1 };
+        }
+        return {
+          output: `MANUAL DO SISTEMA OPERACIONAL (WinLinx POSIX Reference)
+
+NOME
+       ${targetCmd} - comando essencial de gerenciamento de recursos e segurança do Linux
+
+SINOPSE
+       ${targetCmd} [OPÇÕES] [ARGUMENTOS]
+
+NÍVEL DE PRIVILÉGIO
+       Espaço de Usuário (Ring 3) acionando chamadas de sistema no Kernel (Ring 0)
+
+RELEVÂNCIA EM CIBERSEGURANÇA
+       Comando crítico para monitoramento de integridade, telemetria defensiva ou auditoria forense.
+       Auditado pelo subsistema auditd sob o evento execve.`,
+          exitCode: 0
+        };
+      }
+
+      case 'getcap': {
+        if (args.includes('-r') || args[0] === '/') {
+          return {
+            output: `/usr/bin/python3.11 = cap_setuid+ep\n/usr/bin/ping = cap_net_raw+ep`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_LINUX_CAPABILITIES_DISCOVERED_2026}'
+            }
+          };
+        }
+        const target = args[0] || '';
+        if (target.includes('python')) {
+          return { output: `${target} = cap_setuid+ep`, exitCode: 0 };
+        }
+        return { output: `${target}: nenhuma capability especial configurada`, exitCode: 0 };
+      }
+
+      case 'setcap': {
+        if (args.includes('-r')) {
+          const target = args.find(a => !a.startsWith('-')) || '';
+          return { 
+            output: `[SUCESSO] Capabilities removidas de '${target}'. Risco de elevação de privilégio eliminado!`, 
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_LINUX_CAPABILITIES_HARDENED_2026}'
+            }
+          };
+        }
+        return { output: `Capabilities aplicadas: ${args.join(' ')}`, exitCode: 0 };
       }
 
       case 'help': {

@@ -96,3 +96,62 @@ test('Windows Simulator: Firewall netsh advfirewall Rule', () => {
   const netstatRes = engine.execute('netstat -ano');
   assert.ok(!netstatRes.output.includes('8089'));
 });
+
+test('Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd', () => {
+  const engine = new LinuxSimulatorEngine(createInitialLinuxFS());
+
+  // Teste de Kernel Copilot 'explain'
+  const explainRes = engine.execute('explain ptrace');
+  assert.strictEqual(explainRes.exitCode, 0);
+  assert.ok(explainRes.output.includes('ptrace(2)'));
+  assert.ok(explainRes.output.includes('Ring 0'));
+
+  // Teste de Dica 'hint'
+  const hintRes = engine.execute('hint');
+  assert.strictEqual(hintRes.exitCode, 0);
+  assert.ok(hintRes.output.includes('Mentor Kernel WinLinx'));
+
+  // Teste de Capabilities (Linux PrivEsc)
+  const getcapRes = engine.execute('getcap -r /');
+  assert.strictEqual(getcapRes.exitCode, 0);
+  assert.ok(getcapRes.output.includes('cap_setuid+ep'));
+  assert.ok(getcapRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_CAPABILITIES_DISCOVERED'));
+
+  // Teste de Hardening de Capabilities
+  const setcapRes = engine.execute('setcap -r /usr/bin/python3.11');
+  assert.strictEqual(setcapRes.exitCode, 0);
+  assert.ok(setcapRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_CAPABILITIES_HARDENED'));
+
+  // Teste de Geração de Logs Forenses auditd e auth.log
+  assert.ok(explainRes.forensicLogs && explainRes.forensicLogs.length > 0);
+  assert.strictEqual(explainRes.forensicLogs[0].source, 'audit.log');
+  assert.strictEqual(explainRes.forensicLogs[0].facility, 'SYSCALL');
+
+  const sudoRes = engine.execute('sudo su -');
+  assert.ok(sudoRes.forensicLogs && sudoRes.forensicLogs.some(l => l.source === 'auth.log'));
+});
+
+test('Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672', () => {
+  const engine = new WindowsSimulatorEngine(createInitialWindowsFS());
+
+  // Teste de Kernel Copilot 'explain'
+  const explainRes = engine.execute('explain seimpersonate');
+  assert.strictEqual(explainRes.exitCode, 0);
+  assert.ok(explainRes.output.includes('SeImpersonatePrivilege'));
+  assert.ok(explainRes.output.includes('PrintSpoofer'));
+
+  // Teste de Dica 'hint'
+  const hintRes = engine.execute('hint');
+  assert.strictEqual(hintRes.exitCode, 0);
+  assert.ok(hintRes.output.includes('Dica do Mentor Windows'));
+
+  // Teste de Geração de Logs Forenses Windows Security.evtx (Event ID 4688)
+  const tasklistRes = engine.execute('tasklist');
+  assert.ok(tasklistRes.forensicLogs && tasklistRes.forensicLogs.length > 0);
+  assert.strictEqual(tasklistRes.forensicLogs[0].source, 'Security.evtx');
+  assert.strictEqual(tasklistRes.forensicLogs[0].eventId, 4688);
+
+  // Teste de Event ID 4672 com whoami /priv
+  const privRes = engine.execute('whoami /priv');
+  assert.ok(privRes.forensicLogs && privRes.forensicLogs.some(l => l.eventId === 4672));
+});

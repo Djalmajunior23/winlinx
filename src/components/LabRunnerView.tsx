@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PRACTICAL_LABS } from '../data/labs';
-import { LabDefinition, LabTask, OSType, SyscallTrace, EDRAlert } from '../types/simulator';
+import { LabDefinition, LabTask, OSType, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 import { Terminal } from './Terminal';
 import { LinuxSimulatorEngine } from '../core/linuxEngine';
 import { WindowsSimulatorEngine } from '../core/windowsEngine';
@@ -24,6 +24,7 @@ interface LabRunnerViewProps {
   completedTasks: Set<string>;
   onRecordSyscalls?: (traces: SyscallTrace[]) => void;
   onRecordEDRAlerts?: (alerts: EDRAlert[]) => void;
+  onRecordForensicLogs?: (logs: ForensicLogRecord[]) => void;
 }
 
 export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
@@ -31,7 +32,8 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
   onTaskCompleted,
   completedTasks,
   onRecordSyscalls,
-  onRecordEDRAlerts
+  onRecordEDRAlerts,
+  onRecordForensicLogs
 }) => {
   const [selectedLabId, setSelectedLabId] = useState<string>(activeLabId || PRACTICAL_LABS[0].id);
   const [activeOS, setActiveOS] = useState<OSType>('linux');
@@ -69,6 +71,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
       setLinuxState({ cwd: linuxEngine.getCurrentDir(), user: linuxEngine.getCurrentUser() });
       if (exec.syscalls && onRecordSyscalls) onRecordSyscalls(exec.syscalls);
       if (exec.edrAlerts && onRecordEDRAlerts) onRecordEDRAlerts(exec.edrAlerts);
+      if (exec.forensicLogs && onRecordForensicLogs) onRecordForensicLogs(exec.forensicLogs);
 
       res = {
         output: exec.output,
@@ -81,6 +84,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
       setWinState({ cwd: windowsEngine.getCurrentDir(), user: windowsEngine.getCurrentUser() });
       if (exec.syscalls && onRecordSyscalls) onRecordSyscalls(exec.syscalls);
       if (exec.edrAlerts && onRecordEDRAlerts) onRecordEDRAlerts(exec.edrAlerts);
+      if (exec.forensicLogs && onRecordForensicLogs) onRecordForensicLogs(exec.forensicLogs);
 
       res = {
         output: exec.output,

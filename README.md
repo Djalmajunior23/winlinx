@@ -39,6 +39,27 @@
 - Catálogo de processos legítimos do Windows (`System Idle Process`, `System`, `smss.exe`, `csrss.exe`, `wininit.exe`, `services.exe`, `lsass.exe`, `svchost.exe`, `winlogon.exe`, `explorer.exe`).
 - Comparação contínua de caminho real vs caminho homologado para detecção de **Masquerading (MITRE ATT&CK T1036)**.
 
+### 5. Anatomia Comparativa de Kernel (Monolítico vs Híbrido NT)
+- **Visualizador Interativo de Níveis de Privilégio de Hardware (Ring 3 vs Ring 0):**
+  - **Linux (Monolítico / Open-Source):** Espaço de Usuário (`Ring 3`: glibc, shells, daemons) ➔ Instrução `SYSCALL` / `sys_enter` (MSR_LSTAR) ➔ Espaço de Kernel Privilegiado (`Ring 0`: VFS, CFS Process Scheduler, MMU/Paging, Netfilter, Drivers LKMs compartilhando o mesmo espaço de memória).
+  - **Windows NT (Híbrido / Proprietário):** Espaço de Usuário (`Ring 3`: Subsystem DLLs `kernel32/user32`, `csrss.exe`, `lsass.exe`, `ntdll.dll`) ➔ `KiFastSystemCall` / `SYSENTER` e SSDT ➔ Espaço de Kernel Privilegiado (`Ring 0`: Windows Executive com SRM, Object Manager, Microkernel, HAL `hal.dll`, subsistema gráfico `win32k.sys` e drivers de kernel).
+  - **Análise de Ameaças & Mitigações:** Rootkits de Kernel (DKOM, SSDT Hooking), KASLR, SMEP, SMAP, KPTI e PatchGuard (Kernel Patch Protection).
+
+### 6. Central Forense de Auditoria e Logs de SO (SIEM / Event Viewer)
+- **Windows Event Viewer (`Security.evtx` & `System.evtx`):**
+  - Auditoria em tempo real correlacionada com execuções no terminal.
+  - Event IDs: **4688** (Criação de processo com linha de comando e nível de elevação de token), **7045** (Novo serviço instalado), **4672** (Privilégios especiais atribuídos ao logon como `SeDebugPrivilege` e `SeImpersonatePrivilege`), **4624/4625** (Logons com sucesso e falha).
+- **Linux Auditd & Syslog (`audit.log` & `auth.log`):**
+  - Registros de chamadas `execve`, `ptrace`, `setuid` e `kill`, com identificação de UID real vs UID efetivo (EUID).
+  - Sessões PAM e tentativas de acesso com `sudo` gravadas dinamicamente.
+- **Exportação de Dossiê:** Exportação de evidências forenses em formato padronizado JSON para relatórios de incidentes.
+
+### 7. Kernel Copilot & Trilha de Escalação de Privilégios no Terminal
+- **Comando `explain <termo>`:** Explicações pedagógicas em tempo real no terminal (`explain ptrace`, `explain lsass`, `explain aslr`, `explain dep`, `explain fork`, `explain seimpersonate`, `explain unquoted`, `explain runasppl`, `explain capabilities`).
+- **Comando `hint`:** Mentor interativo de Kernel com orientações defensivas e investigativas.
+- **Linux Capabilities (`getcap` / `setcap`):** Exploração e mitigação de binários com `cap_setuid+ep` (`/usr/bin/python3.11`).
+- **Seletor de Postura Operacional:** Alternância rápida entre **Blue Team (Defesa & Hardening)** e **Red Team (Ataque & PrivEsc)** no cabeçalho.
+
 ---
 
 ## 💻 Comandos e Testes Automatizados
@@ -48,13 +69,15 @@
 npm test
 ```
 ```text
-✔ Linux Simulator: Navegação, VFS e I/O Redirection (47ms)
-✔ Linux Simulator: Detecção de Processos & Kill com Syscall (3ms)
-✔ Linux Simulator: Firewall Netfilter & UFW Rule (1ms)
-✔ Windows Simulator: DACL, Processos e EDR Alerts (10ms)
-✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (2ms)
-✔ Windows Simulator: Firewall netsh advfirewall Rule (1ms)
-ℹ tests 6, pass 6, fail 0
+✔ Linux Simulator: Navegação, VFS e I/O Redirection (13ms)
+✔ Linux Simulator: Detecção de Processos & Kill com Syscall (0.3ms)
+✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.2ms)
+✔ Windows Simulator: DACL, Processos e EDR Alerts (1.0ms)
+✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.2ms)
+✔ Windows Simulator: Firewall netsh advfirewall Rule (0.2ms)
+✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (0.3ms)
+✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (0.9ms)
+ℹ tests 8, pass 8, fail 0
 ```
 
 ### Iniciar o Ambiente Interativo
@@ -86,3 +109,7 @@ npm run build
 | **T1547.001** | Registry Run Keys / Startup | Registro (`CurrentVersion\Run`) |
 | **T1049** | System Network Connections | Firewall de Host (`ufw` & `netsh`) |
 | **T1055** | Process Injection / DEP Bypass | Inspetor de Memória Virtual (ASLR/DEP) |
+| **T1548.001** | Capabilities Abuse / cap_setuid | Kernel Copilot (`getcap` / `setcap`) |
+| **T1134.001** | Token Impersonation / SeImpersonate | Kernel Copilot (`explain seimpersonate`) |
+| **T1059.001** | Process Creation Telemetry | Central Forense (Windows Event 4688) |
+| **T1543.003** | Windows Service Persistence | Central Forense (System Event 7045) |

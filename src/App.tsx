@@ -12,9 +12,11 @@ import { OSResourceAnatomyView } from './components/OSResourceAnatomyView';
 import { VirtualMemoryInspector } from './components/VirtualMemoryInspector';
 import { RegistryViewer } from './components/RegistryViewer';
 import { HostFirewallSimulator } from './components/HostFirewallSimulator';
+import { KernelArchitectureView } from './components/KernelArchitectureView';
+import { ForensicLogsViewer } from './components/ForensicLogsViewer';
 import { CertificateModal } from './components/CertificateModal';
 import { PRACTICAL_LABS } from './data/labs';
-import { SyscallTrace, EDRAlert } from './types/simulator';
+import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
 import { WindowsSimulatorEngine } from './core/windowsEngine';
 import { createInitialLinuxFS, createInitialWindowsFS } from './core/defaultFileSystem';
@@ -33,6 +35,8 @@ export function App() {
   // Estados de telemetria sênior em tempo real
   const [syscalls, setSyscalls] = useState<SyscallTrace[]>([]);
   const [edrAlerts, setEdrAlerts] = useState<EDRAlert[]>([]);
+  const [forensicLogs, setForensicLogs] = useState<ForensicLogRecord[]>([]);
+  const [posture, setPosture] = useState<OperationalPosture>('blue-team');
 
   // Progresso do aluno com persistência local
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
@@ -88,6 +92,10 @@ export function App() {
         showNotification(`🚨 [EDR SOC ALERT] ${critical.ruleName} (${critical.mitreId})`);
       }
     }
+  };
+
+  const handleRecordForensicLogs = (newLogs: ForensicLogRecord[]) => {
+    setForensicLogs(prev => [...newLogs, ...prev]);
   };
 
   const handleTaskCompleted = (taskId: string, flag?: string) => {
@@ -155,6 +163,8 @@ export function App() {
         totalTasksCount={totalTasksCount}
         flagsFoundCount={flagsFound.length}
         activeAlertsCount={edrAlerts.length}
+        posture={posture}
+        onTogglePosture={() => setPosture(p => p === 'blue-team' ? 'red-team' : 'blue-team')}
       />
 
       {/* Conteúdo Principal */}
@@ -170,6 +180,10 @@ export function App() {
 
         {activeTab === 'modules' && (
           <CurriculumView onSelectLab={handleSelectLab} />
+        )}
+
+        {activeTab === 'kernel' && (
+          <KernelArchitectureView />
         )}
 
         {activeTab === 'processes' && (
@@ -200,6 +214,13 @@ export function App() {
           />
         )}
 
+        {activeTab === 'forensics' && (
+          <ForensicLogsViewer
+            logs={forensicLogs}
+            onClearLogs={() => setForensicLogs([])}
+          />
+        )}
+
         {activeTab === 'labs' && (
           <LabRunnerView
             activeLabId={activeLabId}
@@ -207,6 +228,7 @@ export function App() {
             completedTasks={completedTasks}
             onRecordSyscalls={handleRecordSyscalls}
             onRecordEDRAlerts={handleRecordEDRAlerts}
+            onRecordForensicLogs={handleRecordForensicLogs}
           />
         )}
 
@@ -215,6 +237,7 @@ export function App() {
             onCaptureFlag={handleCaptureFlag}
             onRecordSyscalls={handleRecordSyscalls}
             onRecordEDRAlerts={handleRecordEDRAlerts}
+            onRecordForensicLogs={handleRecordForensicLogs}
           />
         )}
 

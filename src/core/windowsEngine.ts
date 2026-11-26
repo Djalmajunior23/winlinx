@@ -1,4 +1,4 @@
-import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert } from '../types/simulator';
+import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 
 export class WindowsSimulatorEngine {
   private currentDir: string = 'C:\\Users\\Aluno';
@@ -42,14 +42,14 @@ export class WindowsSimulatorEngine {
   }
 
   private processes: OSProcess[] = [
-    { 
-      pid: 0, 
-      ppid: 0, 
-      name: 'System Idle Process', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 91.2, 
-      memoryMb: 0.0, 
-      path: 'ntoskrnl.exe', 
+    {
+      pid: 0,
+      ppid: 0,
+      name: 'System Idle Process',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 91.2,
+      memoryMb: 0.0,
+      path: 'ntoskrnl.exe',
       expectedPath: 'ntoskrnl.exe',
       status: 'running',
       isProtectedProcess: true,
@@ -57,30 +57,30 @@ export class WindowsSimulatorEngine {
       description: 'Processo especial do kernel que contabiliza ciclos ociosos de cada núcleo de CPU.',
       cybersecRole: 'Não pode ser terminado ou modificado por nenhum software em user mode.'
     },
-    { 
-      pid: 4, 
-      ppid: 0, 
-      name: 'System', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.8, 
-      memoryMb: 45.0, 
-      path: 'ntoskrnl.exe', 
+    {
+      pid: 4,
+      ppid: 0,
+      name: 'System',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.8,
+      memoryMb: 45.0,
+      path: 'ntoskrnl.exe',
       expectedPath: 'ntoskrnl.exe',
-      status: 'running', 
+      status: 'running',
       isProtectedProcess: true,
       integrityLevel: 'System',
       networkPort: 445,
       description: 'Processo do Kernel NT em Ring 0. Abriga threads de drivers de dispositivo, subsistema de memória e SMB (porta 445).',
       cybersecRole: 'Alvo de vulnerabilidades em drivers (BYOVD - Bring Your Own Vulnerable Driver) e ataques de rede SMB (EternalBlue / Relay).'
     },
-    { 
-      pid: 320, 
-      ppid: 4, 
-      name: 'smss.exe', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.0, 
-      memoryMb: 4.2, 
-      path: 'C:\\Windows\\System32\\smss.exe', 
+    {
+      pid: 320,
+      ppid: 4,
+      name: 'smss.exe',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.0,
+      memoryMb: 4.2,
+      path: 'C:\\Windows\\System32\\smss.exe',
       expectedPath: 'C:\\Windows\\System32\\smss.exe',
       status: 'running',
       isProtectedProcess: true,
@@ -88,14 +88,14 @@ export class WindowsSimulatorEngine {
       description: 'Session Manager Subsystem (SMSS) - Primeiro processo de modo usuário (Ring 3) iniciado pelo kernel. Cria as sessões 0 (serviços) e 1 (usuário).',
       cybersecRole: 'Processo altamente protegido; se for finalizado intencionalmente, o Windows gera um Blue Screen of Death (BSOD CRITICAL_PROCESS_DIED).'
     },
-    { 
-      pid: 450, 
-      ppid: 320, 
-      name: 'csrss.exe', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.1, 
-      memoryMb: 6.8, 
-      path: 'C:\\Windows\\System32\\csrss.exe', 
+    {
+      pid: 450,
+      ppid: 320,
+      name: 'csrss.exe',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.1,
+      memoryMb: 6.8,
+      path: 'C:\\Windows\\System32\\csrss.exe',
       expectedPath: 'C:\\Windows\\System32\\csrss.exe',
       status: 'running',
       isProtectedProcess: true,
@@ -103,14 +103,14 @@ export class WindowsSimulatorEngine {
       description: 'Client/Server Runtime Subsystem (CSRSS) - Gerencia janelas de console Win32, criação/encerramento de threads e a GUI básica.',
       cybersecRole: 'Frequentemente alvo de técnicas de masquerading; deve sempre rodar a partir de System32 e com usuário SYSTEM.'
     },
-    { 
-      pid: 580, 
-      ppid: 320, 
-      name: 'wininit.exe', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.0, 
-      memoryMb: 5.1, 
-      path: 'C:\\Windows\\System32\\wininit.exe', 
+    {
+      pid: 580,
+      ppid: 320,
+      name: 'wininit.exe',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.0,
+      memoryMb: 5.1,
+      path: 'C:\\Windows\\System32\\wininit.exe',
       expectedPath: 'C:\\Windows\\System32\\wininit.exe',
       status: 'running',
       isProtectedProcess: true,
@@ -118,30 +118,30 @@ export class WindowsSimulatorEngine {
       description: 'Windows Initialization Process - Inicializa o subsistema de segurança LSASS e o Service Control Manager na Sessão 0.',
       cybersecRole: 'Cria os processos centrais da segurança do Windows (services.exe e lsass.exe).'
     },
-    { 
-      pid: 650, 
-      ppid: 580, 
-      name: 'services.exe', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.2, 
-      memoryMb: 12.0, 
-      path: 'C:\\Windows\\System32\\services.exe', 
+    {
+      pid: 650,
+      ppid: 580,
+      name: 'services.exe',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.2,
+      memoryMb: 12.0,
+      path: 'C:\\Windows\\System32\\services.exe',
       expectedPath: 'C:\\Windows\\System32\\services.exe',
-      status: 'running', 
+      status: 'running',
       isProtectedProcess: true,
       integrityLevel: 'System',
       networkPort: 135,
       description: 'Service Control Manager (SCM) - Gerencia o início, parada e configuração de todos os serviços de background do Windows.',
       cybersecRole: 'Alvo principal para persistência de malwares que tentam registrar serviços maliciosos rodando como LocalSystem (T1543.003).'
     },
-    { 
-      pid: 720, 
-      ppid: 580, 
-      name: 'lsass.exe', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.5, 
-      memoryMb: 28.5, 
-      path: 'C:\\Windows\\System32\\lsass.exe', 
+    {
+      pid: 720,
+      ppid: 580,
+      name: 'lsass.exe',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.5,
+      memoryMb: 28.5,
+      path: 'C:\\Windows\\System32\\lsass.exe',
       expectedPath: 'C:\\Windows\\System32\\lsass.exe',
       status: 'running',
       isProtectedProcess: true,
@@ -150,29 +150,29 @@ export class WindowsSimulatorEngine {
       cybersecRole: 'ALVO NÚMERO 1 EM CIBERSEGURANÇA: Ferramentas como Mimikatz tentam fazer dump de memória do LSASS para extrair hashes NTLM e tickets Kerberos (MITRE ATT&CK T1003.001). Protegido via PPL (Protected Process Light) e Credential Guard.',
       mitreRef: 'T1003.001'
     },
-    { 
-      pid: 890, 
-      ppid: 650, 
-      name: 'svchost.exe', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.3, 
-      memoryMb: 18.2, 
-      path: 'C:\\Windows\\System32\\svchost.exe', 
+    {
+      pid: 890,
+      ppid: 650,
+      name: 'svchost.exe',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.3,
+      memoryMb: 18.2,
+      path: 'C:\\Windows\\System32\\svchost.exe',
       expectedPath: 'C:\\Windows\\System32\\svchost.exe',
-      status: 'running', 
+      status: 'running',
       integrityLevel: 'System',
       networkPort: 3389,
       description: 'Generic Host Process for Windows Services - Executa serviços compilados em formato DLL compartilhada.',
       cybersecRole: 'Atacantes frequentemente injetam código (DLL Injection / Process Hollowing - T1055) dentro de svchost legítimos para mascarar tráfego malicioso.'
     },
-    { 
-      pid: 920, 
-      ppid: 320, 
-      name: 'winlogon.exe', 
-      user: 'NT AUTHORITY\\SYSTEM', 
-      cpu: 0.1, 
-      memoryMb: 8.4, 
-      path: 'C:\\Windows\\System32\\winlogon.exe', 
+    {
+      pid: 920,
+      ppid: 320,
+      name: 'winlogon.exe',
+      user: 'NT AUTHORITY\\SYSTEM',
+      cpu: 0.1,
+      memoryMb: 8.4,
+      path: 'C:\\Windows\\System32\\winlogon.exe',
       expectedPath: 'C:\\Windows\\System32\\winlogon.exe',
       status: 'running',
       isProtectedProcess: true,
@@ -180,28 +180,28 @@ export class WindowsSimulatorEngine {
       description: 'Windows Logon Process - Lida com a sequência de atenção segura (SAS / Ctrl+Alt+Del) e carrega o perfil do usuário.',
       cybersecRole: 'Garante que telas falsas de captura de senha não possam interceptar a combinação de teclas de hardware.'
     },
-    { 
-      pid: 1450, 
-      ppid: 920, 
-      name: 'explorer.exe', 
-      user: 'ALUNO-PC\\Aluno', 
-      cpu: 1.1, 
-      memoryMb: 65.4, 
-      path: 'C:\\Windows\\explorer.exe', 
+    {
+      pid: 1450,
+      ppid: 920,
+      name: 'explorer.exe',
+      user: 'ALUNO-PC\\Aluno',
+      cpu: 1.1,
+      memoryMb: 65.4,
+      path: 'C:\\Windows\\explorer.exe',
       expectedPath: 'C:\\Windows\\explorer.exe',
       status: 'running',
       integrityLevel: 'Medium',
       description: 'Windows Explorer Shell - Interface gráfica de usuário, área de trabalho e barra de tarefas do Aluno.',
       cybersecRole: 'Processo pai de quase todas as aplicações iniciadas pelo usuário. Opera com nível de integridade Médio (Medium Integrity).'
     },
-    { 
-      pid: 2110, 
-      ppid: 1450, 
-      name: 'powershell.exe', 
-      user: 'ALUNO-PC\\Aluno', 
-      cpu: 0.4, 
-      memoryMb: 48.0, 
-      path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', 
+    {
+      pid: 2110,
+      ppid: 1450,
+      name: 'powershell.exe',
+      user: 'ALUNO-PC\\Aluno',
+      cpu: 0.4,
+      memoryMb: 48.0,
+      path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
       expectedPath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
       status: 'running',
       integrityLevel: 'Medium',
@@ -271,13 +271,66 @@ export class WindowsSimulatorEngine {
   public execute(cmdLine: string): CommandResult {
     const trimmed = cmdLine.trim();
     if (!trimmed) {
-      return { output: '', exitCode: 0, syscalls: [], edrAlerts: [] };
+      return { output: '', exitCode: 0, syscalls: [], edrAlerts: [], forensicLogs: [] };
     }
 
     const syscalls: SyscallTrace[] = [];
     const edrAlerts: EDRAlert[] = [];
+    const forensicLogs: ForensicLogRecord[] = [];
+    const timestamp = new Date().toLocaleTimeString();
+    const baseCommand = trimmed.split(' ')[0];
 
     this.inspectEDR(trimmed, edrAlerts);
+
+    // Auditoria Forense Windows Event Viewer: Event ID 4688 (Process Creation)
+    forensicLogs.push({
+      id: Math.random().toString(),
+      timestamp,
+      os: 'windows',
+      source: 'Security.evtx',
+      eventId: 4688,
+      severity: 'INFO',
+      user: this.currentUser,
+      computer: 'WINLINX-WIN-2026',
+      processName: `${baseCommand}.exe`,
+      commandLine: trimmed,
+      details: `Novo Processo Criado: ${baseCommand}.exe | Linha de Comando: "${trimmed}" | Usuário: ${this.currentUser} | TokenElevation: ${this.currentUser.includes('SYSTEM') ? 'TokenElevationTypeFull (Elevated)' : 'TokenElevationTypeDefault'}`,
+      mitreRef: edrAlerts.length > 0 ? edrAlerts[0].mitreId : undefined
+    });
+
+    if (trimmed.toLowerCase().includes('whoami /priv') || this.currentUser.includes('SYSTEM')) {
+      forensicLogs.push({
+        id: Math.random().toString(),
+        timestamp,
+        os: 'windows',
+        source: 'Security.evtx',
+        eventId: 4672,
+        severity: 'WARNING',
+        user: this.currentUser,
+        computer: 'WINLINX-WIN-2026',
+        processName: 'lsass.exe',
+        commandLine: trimmed,
+        details: `Privilégios Especiais Atribuídos ao Logon (SeDebugPrivilege, SeImpersonatePrivilege) para a conta ${this.currentUser}`,
+        mitreRef: 'T1087.001'
+      });
+    }
+
+    if (trimmed.toLowerCase().startsWith('sc ') || trimmed.toLowerCase().startsWith('sc.exe')) {
+      forensicLogs.push({
+        id: Math.random().toString(),
+        timestamp,
+        os: 'windows',
+        source: 'System.evtx',
+        eventId: 7045,
+        severity: 'WARNING',
+        user: this.currentUser,
+        computer: 'WINLINX-WIN-2026',
+        processName: 'services.exe',
+        commandLine: trimmed,
+        details: `Um serviço foi consultado ou instalado no sistema operacional: "${trimmed}"`,
+        mitreRef: 'T1543.003'
+      });
+    }
 
     if (trimmed.includes('>')) {
       const isAppend = trimmed.includes('>>');
@@ -293,6 +346,7 @@ export class WindowsSimulatorEngine {
         exitCode: writeResult.error ? 1 : 0,
         syscalls,
         edrAlerts,
+        forensicLogs,
         stateChanges: {
           filesModified: [targetFilePath]
         }
@@ -317,12 +371,13 @@ export class WindowsSimulatorEngine {
         output: 'PS C:\\Windows\\System32> Sessão elevada iniciada com privilégios de NT AUTHORITY\\SYSTEM / Administrator.',
         exitCode: 0,
         syscalls,
-        edrAlerts
+        edrAlerts,
+        forensicLogs
       };
     }
 
     const res = this.executeCommandInternal(trimmed, syscalls);
-    return { ...res, syscalls, edrAlerts };
+    return { ...res, syscalls, edrAlerts, forensicLogs };
   }
 
   private inspectEDR(cmdLine: string, edrAlerts: EDRAlert[]) {
@@ -884,6 +939,74 @@ NOME_DO_SERVIÇO: ${svcName}
       case 'echo':
       case 'write-output': {
         return { output: args.join(' ').replace(/^['"]|['"]$/g, ''), exitCode: 0 };
+      }
+
+      case 'explain': {
+        const topic = (args[0] || '').toLowerCase();
+        if (!topic) {
+          return {
+            output: `[WinLinx Windows Kernel Copilot] Uso: explain <conceito | processo | privilegio>
+Exemplos:
+  explain seimpersonate
+  explain lsass
+  explain unquoted
+  explain runasppl
+  explain aslr
+  explain dep
+  explain icacls`,
+            exitCode: 0
+          };
+        }
+
+        const winExplanations: Record<string, string> = {
+          seimpersonate: `[Windows Security Token: SeImpersonatePrivilege]
+• Definição: Permite a um processo personificar o contexto de segurança de outro cliente após autenticação.
+• Vetor de Escalação (RottenPotato / PrintSpoofer / JuicyPotato): Serviços locais rodando como LOCAL SERVICE ou NETWORK SERVICE que possuem este privilégio podem forçar o SYSTEM a autenticar via RPC/COM e personificar o token SYSTEM!
+• Mitigação: Remover o privilégio de serviços expostos e manter o SO atualizado.`,
+
+          lsass: `[Windows Architecture: lsass.exe (Local Security Authority)]
+• Definição: Processo responsável por impor políticas de segurança, gerar tokens de acesso e hospedar pacotes de autenticação (MSV1_0, Kerberos, CredSSP).
+• Risco: Credenciais em texto claro e hashes NTLM em memória cache alvejados por Mimikatz.
+• Proteção NT: Habilitar RunAsPPL (Protected Process Light) no Registro (HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa).`,
+
+          runasppl: `[Proteção de Kernel: Protected Process Light (PPL)]
+• Definição: Modelo de segurança introduzido no Windows 8.1/Server 2012 R2 que impede que processos sem assinatura digital da Microsoft acessem o espaço de memória de processos do sistema com PROCESS_VM_READ ou PROCESS_VM_WRITE.
+• Chave: HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa -> RunAsPPL = 1.`,
+
+          unquoted: `[Vulnerabilidade: Unquoted Service Path (Caminho de Serviço Sem Aspas)]
+• Definição: Ocorre quando um serviço do Windows tem seu caminho binário contendo espaços e sem aspas duplas envolventes (ex: C:\\Program Files\\Custom App\\service.exe).
+• Vetor de Exploração: O Windows tenta executar na ordem:
+  1) C:\\Program.exe
+  2) C:\\Program Files\\Custom.exe
+  3) C:\\Program Files\\Custom App\\service.exe
+Se o invasor tiver permissão de escrita em C:\\, ele coloca 'Program.exe' e ganha execução como SYSTEM.`,
+
+          aslr: `[Mitigação de Memória: ASLR & High Entropy ASLR]
+• Definição: Randomização dos endereços base de DLLs, executáveis, TEB, PEB, Pilha e Heap.
+• No Windows: Forçado globalmente pelo Exploit Guard ou sinalizador de cabeçalho PE IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE.`,
+
+          dep: `[Mitigação de Memória: DEP / NX (Data Execution Prevention)]
+• Definição: Força páginas de pilha e dados como não-executáveis (NX bit), gerando EXCEPTION_ACCESS_VIOLATION (0xC0000005) em tentativas de execução de shellcode direto.`,
+
+          icacls: `[Controle de Acesso: DACL (Discretionary Access Control List)]
+• Definição: Lista associada a objetos NTFS (arquivos, diretórios) que define permissões para SIDs (Usuários e Grupos).
+• Boas práticas: Nunca conceder Write (W) ou Modify (M) para 'BUILTIN\\Users' em diretórios de programas do sistema.`
+        };
+
+        const out = winExplanations[topic] || `[Conceito Windows NT: ${topic}]
+Recurso estrutural do Windows NT. Digite 'explain' sem parâmetros para ver tópicos disponíveis.`;
+        return { output: out, exitCode: 0 };
+      }
+
+      case 'hint': {
+        return {
+          output: `💡 [Dica do Mentor Windows WinLinx]
+• Para auditar serviços vulneráveis: execute 'sc qc <NomeDoServiço>' e procure caminhos sem aspas (Unquoted Service Path).
+• Para auditar permissões de arquivos: execute 'icacls "C:\\Program Files\\Custom App"'.
+• Para proteger o LSASS contra dumping: use 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v RunAsPPL /t REG_DWORD /d 1 /f'.
+• Para bloquear conexões suspeitas: use 'netsh advfirewall firewall add rule ...'.`,
+          exitCode: 0
+        };
       }
 
       case 'help':

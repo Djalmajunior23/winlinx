@@ -87,10 +87,46 @@ export interface CommandResult {
   exitCode: number;
   syscalls?: SyscallTrace[];
   edrAlerts?: EDRAlert[];
+  forensicLogs?: ForensicLogRecord[];
   stateChanges?: {
     filesModified?: string[];
     processKilled?: number;
     flagDiscovered?: string;
+  };
+}
+
+export type OperationalPosture = 'red-team' | 'blue-team';
+
+export interface ForensicLogRecord {
+  id: string;
+  timestamp: string;
+  os: OSType;
+  source: 'Security.evtx' | 'System.evtx' | 'audit.log' | 'auth.log' | 'Sysmon';
+  eventId?: number; // Windows Event ID (ex: 4688, 7045, 4625, 4672, 1102)
+  facility?: string; // Linux audit/syslog facility (ex: 'USER_CMD', 'AUTH_ERR', 'SYSCALL')
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  user: string;
+  computer: string;
+  processName?: string;
+  commandLine?: string;
+  details: string;
+  mitreRef?: string;
+}
+
+export interface KernelArchitectureComponent {
+  id: string;
+  name: string;
+  os: OSType;
+  ring: 'Ring 3 (User Mode)' | 'Hardware Transition / Gateway' | 'Ring 0 (Kernel Mode)' | 'Hardware / CPU';
+  layer: 'Application' | 'Subsystem / Libraries' | 'System Call Interface' | 'Kernel Core' | 'Hardware Abstraction';
+  description: string;
+  securityRole: string;
+  attackSurfaces: string[];
+  defensiveMechanisms: string[];
+  technicalSpecs: {
+    sourceType: 'Open-Source (GPLv2)' | 'Proprietary (Closed-Source)';
+    memorySpace: string;
+    keyAPIs: string[];
   };
 }
 

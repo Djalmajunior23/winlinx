@@ -3,19 +3,21 @@ import { Terminal } from './Terminal';
 import { LinuxSimulatorEngine } from '../core/linuxEngine';
 import { WindowsSimulatorEngine } from '../core/windowsEngine';
 import { createInitialLinuxFS, createInitialWindowsFS } from '../core/defaultFileSystem';
-import { SyscallTrace, EDRAlert } from '../types/simulator';
+import { SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 import { ArrowLeftRight, Sparkles, RefreshCw, Terminal as TerminalIcon } from 'lucide-react';
 
 interface DualTerminalPlaygroundProps {
   onCaptureFlag?: (flag: string) => void;
   onRecordSyscalls?: (traces: SyscallTrace[]) => void;
   onRecordEDRAlerts?: (alerts: EDRAlert[]) => void;
+  onRecordForensicLogs?: (logs: ForensicLogRecord[]) => void;
 }
 
 export const DualTerminalPlayground: React.FC<DualTerminalPlaygroundProps> = ({ 
   onCaptureFlag,
   onRecordSyscalls,
-  onRecordEDRAlerts
+  onRecordEDRAlerts,
+  onRecordForensicLogs
 }) => {
   const [linuxEngine] = useState(() => new LinuxSimulatorEngine(createInitialLinuxFS()));
   const [windowsEngine] = useState(() => new WindowsSimulatorEngine(createInitialWindowsFS()));
@@ -45,6 +47,9 @@ export const DualTerminalPlayground: React.FC<DualTerminalPlaygroundProps> = ({
     if (res.edrAlerts && onRecordEDRAlerts) {
       onRecordEDRAlerts(res.edrAlerts);
     }
+    if (res.forensicLogs && onRecordForensicLogs) {
+      onRecordForensicLogs(res.forensicLogs);
+    }
     if (res.stateChanges?.flagDiscovered && onCaptureFlag) {
       onCaptureFlag(res.stateChanges.flagDiscovered);
     }
@@ -69,6 +74,9 @@ export const DualTerminalPlayground: React.FC<DualTerminalPlaygroundProps> = ({
     }
     if (res.edrAlerts && onRecordEDRAlerts) {
       onRecordEDRAlerts(res.edrAlerts);
+    }
+    if (res.forensicLogs && onRecordForensicLogs) {
+      onRecordForensicLogs(res.forensicLogs);
     }
     if (res.stateChanges?.flagDiscovered && onCaptureFlag) {
       onCaptureFlag(res.stateChanges.flagDiscovered);

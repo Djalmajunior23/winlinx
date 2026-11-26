@@ -13,17 +13,23 @@ import {
   Layers,
   Activity,
   Lock,
-  Network
+  Network,
+  FileSearch,
+  Crosshair,
+  ShieldCheck
 } from 'lucide-react';
+import { OperationalPosture } from '../types/simulator';
 
 export type ActiveTab = 
   | 'dashboard' 
   | 'modules' 
   | 'processes'
   | 'anatomy'
+  | 'kernel'
   | 'memory'
   | 'registry'
   | 'firewall'
+  | 'forensics'
   | 'dual-lab' 
   | 'comparator' 
   | 'labs' 
@@ -38,6 +44,8 @@ interface NavbarProps {
   totalTasksCount: number;
   flagsFoundCount: number;
   activeAlertsCount?: number;
+  posture?: OperationalPosture;
+  onTogglePosture?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -46,7 +54,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   completedTasksCount,
   totalTasksCount,
   flagsFoundCount,
-  activeAlertsCount = 0
+  activeAlertsCount = 0,
+  posture = 'blue-team',
+  onTogglePosture
 }) => {
   const progressPercent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
@@ -77,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Navegação Principal */}
-          <nav className="hidden 2xl:flex items-center space-x-1">
+          <nav className="hidden xl:flex items-center space-x-1">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -90,6 +100,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('kernel')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'kernel'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-purple-400" />
+              <span>Kernel</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('processes')}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'processes'
@@ -97,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <Activity className="w-3.5 h-3.5" />
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
               <span>Processos</span>
             </button>
 
@@ -110,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Memória (ASLR/DEP)</span>
+              <span>Memória</span>
             </button>
 
             <button
@@ -122,7 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Lock className="w-3.5 h-3.5 text-blue-400" />
-              <span>Registro Windows</span>
+              <span>Registro</span>
             </button>
 
             <button
@@ -133,8 +155,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
               }`}
             >
-              <Network className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Firewall Host</span>
+              <Network className="w-3.5 h-3.5 text-teal-400" />
+              <span>Firewall</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('forensics')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'forensics'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FileSearch className="w-3.5 h-3.5 text-amber-400" />
+              <span>Logs & SIEM</span>
             </button>
 
             <button
@@ -174,18 +208,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('syscalls')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'syscalls'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Syscalls</span>
-            </button>
-
-            <button
               onClick={() => setActiveTab('edr')}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 activeTab === 'edr'
@@ -201,8 +223,33 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Gamificação / Progresso do Aluno */}
+          {/* Gamificação / Postura Operacional / Progresso */}
           <div className="flex items-center space-x-2.5">
+            {/* Seletor de Postura Operacional: Red Team vs Blue Team */}
+            {onTogglePosture && (
+              <button
+                onClick={onTogglePosture}
+                className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                  posture === 'blue-team'
+                    ? 'bg-cyan-950/60 border-cyan-700/80 text-cyan-300 shadow-sm'
+                    : 'bg-rose-950/60 border-rose-700/80 text-rose-300 shadow-sm'
+                }`}
+                title="Alternar Postura Operacional (Ataque vs Defesa)"
+              >
+                {posture === 'blue-team' ? (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Blue Team (Defesa)</span>
+                  </>
+                ) : (
+                  <>
+                    <Crosshair className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Red Team (Ataque)</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-medium">
               <Flame className="w-3.5 h-3.5 fill-amber-400" />
               <span>{flagsFoundCount} Flags</span>
