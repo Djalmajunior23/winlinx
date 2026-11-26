@@ -21,6 +21,10 @@ import { IPCArchitectureView } from './components/IPCArchitectureView';
 import { KernelDriversView } from './components/KernelDriversView';
 import { ThreatInjectorView } from './components/ThreatInjectorView';
 import { CustomLabBuilderView } from './components/CustomLabBuilderView';
+import { MalwareSandboxView } from './components/MalwareSandboxView';
+import { BinaryReverseEngineeringView } from './components/BinaryReverseEngineeringView';
+import { NetworkTopologyPivotView } from './components/NetworkTopologyPivotView';
+import { AdversaryEmulationView } from './components/AdversaryEmulationView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
@@ -270,6 +274,22 @@ export function App() {
 
         {activeTab === 'drivers' && (
           <KernelDriversView />
+        )}
+
+        {activeTab === 'sandbox' && (
+          <MalwareSandboxView />
+        )}
+
+        {activeTab === 'reversing' && (
+          <BinaryReverseEngineeringView />
+        )}
+
+        {activeTab === 'network-pivot' && (
+          <NetworkTopologyPivotView />
+        )}
+
+        {activeTab === 'adversary' && (
+          <AdversaryEmulationView />
         )}
 
         {activeTab === 'threat-injector' && (

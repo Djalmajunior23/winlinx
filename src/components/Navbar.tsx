@@ -36,6 +36,10 @@ export type ActiveTab =
   | 'forensics'
   | 'ipc'
   | 'drivers'
+  | 'sandbox'
+  | 'reversing'
+  | 'network-pivot'
+  | 'adversary'
   | 'threat-injector'
   | 'lab-builder'
   | 'dual-lab' 
@@ -225,6 +229,54 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Cpu className="w-3.5 h-3.5 text-cyan-400" />
               <span>Drivers/BYOVD</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('sandbox')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'sandbox'
+                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-purple-400" />
+              <span>Sandbox</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('reversing')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'reversing'
+                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FileSearch className="w-3.5 h-3.5 text-blue-400" />
+              <span>Reversa (PE/ELF)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('network-pivot')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'network-pivot'
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Network className="w-3.5 h-3.5 text-emerald-400" />
+              <span>AD & Pivot</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('adversary')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'adversary'
+                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Crosshair className="w-3.5 h-3.5 text-rose-400" />
+              <span>Campanhas APT</span>
             </button>
 
             <button

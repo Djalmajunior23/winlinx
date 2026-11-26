@@ -112,6 +112,36 @@
   - Interface interativa para criar desafios personalizados com título, descrição, sistema operacional alvo, tarefas e flags customizadas.
   - Exportação e importação instantânea de esquemas JSON `.winlinx-lab.json` para compartilhamento entre turmas.
 
+### 14. Motor de Análise Dinâmica de Malware & Sandbox Forense (Cuckoo / ANY.RUN Style)
+- **Execução Contida em Hypervisor Simulado:**
+  - Detonação isolada de artefatos maliciosos reais (`mssecsvc.exe` WannaCry, `dvrHelper.elf` Mirai Botnet, `loader_hollowing.exe`).
+  - Desarmamento de verificações **Anti-Análise & Anti-VM** (`IsDebuggerPresent()`, `Sleep` com `NtDelayExecution`, checagem de CPU cores e nomes de processos de AV).
+  - Cálculo automatizado de **Threat Score (0 a 10.0)** e mapeamento MITRE ATT&CK (`FLAG{WINLINX_SANDBOX_MALWARE_ANALYZED_2026}`).
+
+### 15. Módulo de Engenharia Reversa & Descompilação de Binários (PE vs ELF)
+- **Análise Estática de Cabeçalhos e Seções:**
+  - **Windows PE:** DOS Header `MZ`, PE Signature, IAT (Import Address Table) auditando chamadas críticas (`VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread`).
+  - **Linux ELF:** Magic `\x7fELF`, Program Headers, Section Headers (`.text`, `.rodata`, `.got.plt`, `.bss`).
+- **Verificação de Entropia & Packing:**
+  - Detecção de compactação e ofuscação (ex: UPX com entropia > 7.5).
+- **Desmontador Assembly x86_64:**
+  - Inspeção do fluxo de instruções assembly (`sub rsp`, `mov rax, gs:[60h]` para PEB, `syscall` para `ptrace`), desvendando evasões de baixo nível (`FLAG{WINLINX_REVERSE_ENGINEERING_DISASM_2026}`).
+
+### 16. Topologia de Rede, Pivoteamento & Movimentação Lateral (Active Directory & SSH)
+- **Simulação de Rede Corporativa Multi-Host:**
+  - **Workstation (WS-ALUNO-01):** Ponto de acesso inicial com serviços WinRM/SMB.
+  - **Jump Server (SRV-LINUX-JUMP):** Servidor Linux com SSH e Docker Socket (`/var/run/docker.sock`).
+  - **Domain Controller (CORP-DC-01):** Kerberos KDC, LDAP e SMB.
+- **Técnicas de Exploração em Cadeia:**
+  - Pivot para Linux via SSH ➔ Docker Socket Breakout para root ➔ Kerberoasting e Pass-the-Ticket obtendo domínio total (`FLAG{WINLINX_LATERAL_MOVEMENT_DOMAIN_DOMINATED_2026}`).
+
+### 17. Emulação de Adversários Automatizada (Campanhas APT - MITRE ATT&CK)
+- **Campanhas de Ameaças Avançadas:**
+  - **APT29 (Cozy Bear / Nobelium):** Operação Sunburst / Supply Chain trojanizando DLLs, sleep prolongado, Golden Ticket e exfiltração HTTPS.
+  - **LockBit 3.0 (Black):** Ransomware-as-a-Service com encerramento de defesas, exclusão de cópias de sombra (`vssadmin`) e criptografia rápida.
+- **Defesa Ativa:**
+  - Interface interativa para analistas SOC aplicarem contramedidas específicas em cada tática da Kill Chain (`FLAG{WINLINX_APT_ADVERSARY_EMULATION_NEUTRALIZED_2026}`).
+
 ---
 
 ## 💻 Comandos e Testes Automatizados
@@ -121,19 +151,20 @@
 npm test
 ```
 ```text
-✔ Linux Simulator: Navegação, VFS e I/O Redirection (24.6ms)
-✔ Linux Simulator: Detecção de Processos & Kill com Syscall (0.8ms)
-✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.3ms)
-✔ Windows Simulator: DACL, Processos e EDR Alerts (2.6ms)
-✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.5ms)
-✔ Windows Simulator: Firewall netsh advfirewall Rule (0.3ms)
-✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (0.5ms)
-✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (0.3ms)
-✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (0.3ms)
+✔ Linux Simulator: Navegação, VFS e I/O Redirection (52.7ms)
+✔ Linux Simulator: Detecção de Processos & Kill com Syscall (4.0ms)
+✔ Linux Simulator: Firewall Netfilter & UFW Rule (2.1ms)
+✔ Windows Simulator: DACL, Processos e EDR Alerts (3.2ms)
+✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.7ms)
+✔ Windows Simulator: Firewall netsh advfirewall Rule (1.1ms)
+✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (0.8ms)
+✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (0.4ms)
+✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (0.4ms)
 ✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (0.4ms)
-✔ Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner (0.5ms)
-✔ Windows Simulator: Named Pipes (\\.\pipe\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner (0.5ms)
-ℹ tests 12, pass 12, fail 0
+✔ Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner (1.2ms)
+✔ Windows Simulator: Named Pipes (\\.\pipe\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner (2.6ms)
+✔ WinLinx Ultimate Range: Engenharia Reversa (readelf / dumpbin) & Kerberos AD (klist) (4.5ms)
+ℹ tests 13, pass 13, fail 0
 ```
 ```
 

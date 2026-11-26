@@ -261,3 +261,34 @@ test('Windows Simulator: Named Pipes (\\\\.\\pipe\\), Kernel Drivers BYOVD (driv
   assert.ok(pwshRes.output.includes('PowerShell Script Runner'));
   assert.ok(pwshRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_POWERSHELL_SCRIPT_EXECUTED_2026}'));
 });
+
+test('WinLinx Ultimate Range: Engenharia Reversa (readelf / dumpbin) & Kerberos AD (klist)', () => {
+  const linuxEngine = new LinuxSimulatorEngine(createInitialLinuxFS());
+  const windowsEngine = new WindowsSimulatorEngine(createInitialWindowsFS());
+
+  // Linux readelf
+  const readelfRes = linuxEngine.execute('readelf -h binary.elf');
+  assert.strictEqual(readelfRes.exitCode, 0);
+  assert.ok(readelfRes.output.includes('ELF Header'));
+  assert.ok(readelfRes.output.includes('.text'));
+  assert.ok(readelfRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_READELF_ELF_HEADER_AUDITED_2026}'));
+
+  // Linux klist (Kerberos PAM/SSSD)
+  const linuxKlistRes = linuxEngine.execute('klist');
+  assert.strictEqual(linuxKlistRes.exitCode, 0);
+  assert.ok(linuxKlistRes.output.includes('krbtgt/CORP.LOCAL@CORP.LOCAL'));
+  assert.ok(linuxKlistRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_KERBEROS_KLIST_INSPECTED_2026}'));
+
+  // Windows dumpbin (PE Sections & Entropy)
+  const dumpbinRes = windowsEngine.execute('dumpbin /headers agent_implant.exe');
+  assert.strictEqual(dumpbinRes.exitCode, 0);
+  assert.ok(dumpbinRes.output.includes('PE SIGNATURE'));
+  assert.ok(dumpbinRes.output.includes('HIGH ENTROPY'));
+  assert.ok(dumpbinRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_DUMPBIN_PE_HEADER_AUDITED_2026}'));
+
+  // Windows klist (Active Directory TGT)
+  const winKlistRes = windowsEngine.execute('klist');
+  assert.strictEqual(winKlistRes.exitCode, 0);
+  assert.ok(winKlistRes.output.includes('krbtgt/CORP.LOCAL'));
+  assert.ok(winKlistRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_KERBEROS_KLIST_AUDITED_2026}'));
+});

@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Flame, 
-  ShieldAlert, 
-  ShieldCheck, 
-  AlertTriangle, 
-  Terminal, 
-  Play, 
-  RotateCcw, 
-  Activity, 
-  Clock, 
-  Lock, 
-  CheckCircle2, 
-  Cpu, 
+import {
+  Flame,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
+  Terminal,
+  Play,
+  RotateCcw,
+  Activity,
+  Clock,
+  Lock,
+  CheckCircle2,
+  Cpu,
   HardDrive,
   Network
 } from 'lucide-react';
@@ -141,11 +141,10 @@ export const ThreatInjectorView: React.FC<ThreatInjectorViewProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center space-x-4">
-            <div className={`p-3.5 rounded-2xl border transition-all ${
-              attackActive
-                ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse'
-                : 'bg-gradient-to-br from-amber-500/20 to-rose-500/20 border-amber-500/30 text-amber-400'
-            }`}>
+            <div className={`p-3.5 rounded-2xl border transition-all ${attackActive
+              ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse'
+              : 'bg-gradient-to-br from-amber-500/20 to-rose-500/20 border-amber-500/30 text-amber-400'
+              }`}>
               <Flame className="w-8 h-8" />
             </div>
             <div>
@@ -199,9 +198,8 @@ export const ThreatInjectorView: React.FC<ThreatInjectorViewProps> = ({
               <span className="text-xs text-slate-400 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-cyan-400" /> Saúde do SO:
               </span>
-              <span className={`font-mono text-base font-bold ${
-                systemHealth > 50 ? 'text-emerald-400' : systemHealth > 25 ? 'text-amber-400' : 'text-rose-400 animate-pulse'
-              }`}>
+              <span className={`font-mono text-base font-bold ${systemHealth > 50 ? 'text-emerald-400' : systemHealth > 25 ? 'text-amber-400' : 'text-rose-400 animate-pulse'
+                }`}>
                 {systemHealth}%
               </span>
             </div>
@@ -224,11 +222,10 @@ export const ThreatInjectorView: React.FC<ThreatInjectorViewProps> = ({
           <div
             key={scen.id}
             onClick={() => { setSelectedScenarioId(scen.id); setAttackActive(false); }}
-            className={`p-5 rounded-2xl border transition-all cursor-pointer shadow-lg ${
-              selectedScenarioId === scen.id
-                ? 'bg-slate-800/90 border-cyan-500/70 ring-1 ring-cyan-500/40'
-                : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-            }`}
+            className={`p-5 rounded-2xl border transition-all cursor-pointer shadow-lg ${selectedScenarioId === scen.id
+              ? 'bg-slate-800/90 border-cyan-500/70 ring-1 ring-cyan-500/40'
+              : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
@@ -264,16 +261,14 @@ export const ThreatInjectorView: React.FC<ThreatInjectorViewProps> = ({
             return (
               <div
                 key={step.id}
-                className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                  isDone 
-                    ? 'bg-emerald-950/20 border-emerald-900/40 opacity-75' 
-                    : 'bg-slate-950 border-slate-800'
-                }`}
+                className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isDone
+                  ? 'bg-emerald-950/20 border-emerald-900/40 opacity-75'
+                  : 'bg-slate-950 border-slate-800'
+                  }`}
               >
                 <div className="flex items-start space-x-3">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center font-mono text-xs font-bold ${
-                    isDone ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                  }`}>
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center font-mono text-xs font-bold ${isDone ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                    }`}>
                     {idx + 1}
                   </span>
                   <div>
@@ -285,11 +280,10 @@ export const ThreatInjectorView: React.FC<ThreatInjectorViewProps> = ({
                 <button
                   onClick={() => handleApplyStep(step.id, step.command)}
                   disabled={isDone}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center space-x-1.5 ${
-                    isDone
-                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                      : 'bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center space-x-1.5 ${isDone
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : 'bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40'
+                    }`}
                 >
                   <Terminal className="w-3.5 h-3.5" />
                   <span>{isDone ? 'Executado' : 'Aplicar Remediação'}</span>

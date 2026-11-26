@@ -1111,6 +1111,63 @@ Recurso estrutural do Windows NT. Digite 'explain' sem parâmetros para ver tóp
         };
       }
 
+      case 'klist': {
+        return {
+          output: `Current LogonId is 0:0x3e7
+Cached Tickets: (1)
+
+#0>     Client: Aluno @ CORP.LOCAL
+        Server: krbtgt/CORP.LOCAL @ CORP.LOCAL
+        KerbTicket Encryption Type: AES-256-CTS-HMAC-SHA1-96
+        Ticket Flags 0x40e10000 -> forwardable renewable initial pre_authent name_canonicalize
+        Start Time: 11/26/2026 20:00:10 (local)
+        End Time:   11/27/2026 06:00:10 (local)
+        Renew Time: 12/03/2026 20:00:10 (local)
+        Session Key Type: AES-256-CTS-HMAC-SHA1-96
+
+[Active Directory Kerberos TGT Ticket Verificado]
+FLAG{WINLINX_WINDOWS_KERBEROS_KLIST_AUDITED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_KERBEROS_KLIST_AUDITED_2026}'
+          }
+        };
+      }
+
+      case 'dumpbin': {
+        const target = args.find(a => !a.startsWith('/')) || 'binary.exe';
+        return {
+          output: `Microsoft (R) COFF/PE Dumper Version 14.38.33135.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+Dump of file ${target}
+
+PE SIGNATURE: 0x00004550 (PE\\0\\0)
+FILE HEADER VALUES
+             8664 machine (x64)
+                4 number of sections
+         65DF6C90 time date stamp Wed Feb 28 20:25:20 2026
+                0 file pointer to symbol table
+                0 number of symbols
+               F0 size of optional header
+               22 characteristics
+                   Executable
+                   Application can handle large (>2GB) addresses
+
+SECTION HEADERS:
+   .text    Virtual Size: 0001A400, Virtual Address: 00001000 (R-X)
+   .rdata   Virtual Size: 00008200, Virtual Address: 0001C000 (R--)
+   .data    Virtual Size: 00003100, Virtual Address: 00025000 (RW-)
+   .upx1    Virtual Size: 00045000, Virtual Address: 00029000 [HIGH ENTROPY 7.85 - PACKED]
+
+FLAG{WINLINX_WINDOWS_DUMPBIN_PE_HEADER_AUDITED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_DUMPBIN_PE_HEADER_AUDITED_2026}'
+          }
+        };
+      }
+
       case 'driverquery': {
         syscalls.push({
           id: Math.random().toString(),

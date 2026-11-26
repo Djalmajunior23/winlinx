@@ -26,149 +26,149 @@ export class LinuxSimulatorEngine {
   }
 
   private processes: OSProcess[] = [
-    { 
-      pid: 1, 
-      ppid: 0, 
-      name: 'systemd', 
-      user: 'root', 
-      cpu: 0.1, 
-      memoryMb: 14.8, 
-      path: '/sbin/init', 
+    {
+      pid: 1,
+      ppid: 0,
+      name: 'systemd',
+      user: 'root',
+      cpu: 0.1,
+      memoryMb: 14.8,
+      path: '/sbin/init',
       expectedPath: '/sbin/init',
       status: 'running',
       isProtectedProcess: true,
       description: 'Init System (PID 1) - Ancestral de todos os processos de espaço de usuário (Ring 3), gerencia cgroups, targets e units de serviço.',
       cybersecRole: 'Controla inicialização segura, sandboxing de serviços (ProtectSystem=full, PrivateTmp=true).'
     },
-    { 
-      pid: 2, 
-      ppid: 0, 
-      name: 'kthreadd', 
-      user: 'root', 
-      cpu: 0.0, 
-      memoryMb: 0.0, 
-      path: '[kthreadd]', 
+    {
+      pid: 2,
+      ppid: 0,
+      name: 'kthreadd',
+      user: 'root',
+      cpu: 0.0,
+      memoryMb: 0.0,
+      path: '[kthreadd]',
       expectedPath: '[kthreadd]',
       status: 'running',
       isProtectedProcess: true,
       description: 'Kernel Thread Daemon (PID 2) - Criador e coordenador de todas as threads que operam diretamente no espaço de Kernel (Ring 0).',
       cybersecRole: 'Processos com PPID 2 são threads de kernel legítimas. Malwares em user-mode que tentam usar nomes [kworker] são facilmente detectados por terem PPID diferente de 2.'
     },
-    { 
-      pid: 350, 
-      ppid: 1, 
-      name: 'systemd-journald', 
-      user: 'root', 
-      cpu: 0.2, 
-      memoryMb: 18.2, 
-      path: '/lib/systemd/systemd-journald', 
+    {
+      pid: 350,
+      ppid: 1,
+      name: 'systemd-journald',
+      user: 'root',
+      cpu: 0.2,
+      memoryMb: 18.2,
+      path: '/lib/systemd/systemd-journald',
       expectedPath: '/lib/systemd/systemd-journald',
       status: 'running',
       description: 'Serviço de coleta, indexação e armazenamento seguro de logs de eventos do sistema operacional.',
       cybersecRole: 'Primeira linha de telemetria para detecção de anomalias e auditoria de segurança (journalctl).'
     },
-    { 
-      pid: 380, 
-      ppid: 1, 
-      name: 'systemd-udevd', 
-      user: 'root', 
-      cpu: 0.0, 
-      memoryMb: 9.4, 
-      path: '/lib/systemd/systemd-udevd', 
+    {
+      pid: 380,
+      ppid: 1,
+      name: 'systemd-udevd',
+      user: 'root',
+      cpu: 0.0,
+      memoryMb: 9.4,
+      path: '/lib/systemd/systemd-udevd',
       expectedPath: '/lib/systemd/systemd-udevd',
       status: 'running',
       description: 'Gerenciador de eventos de hardware e nós de dispositivos em /dev.',
       cybersecRole: 'Monitora conexões USB e hardware externo (prevenção contra ataques BadUSB e Rubber Ducky).'
     },
-    { 
-      pid: 412, 
-      ppid: 1, 
-      name: 'sshd', 
-      user: 'root', 
-      cpu: 0.0, 
-      memoryMb: 8.5, 
-      path: '/usr/sbin/sshd', 
+    {
+      pid: 412,
+      ppid: 1,
+      name: 'sshd',
+      user: 'root',
+      cpu: 0.0,
+      memoryMb: 8.5,
+      path: '/usr/sbin/sshd',
       expectedPath: '/usr/sbin/sshd',
-      status: 'running', 
+      status: 'running',
       networkPort: 22,
       description: 'OpenSSH Daemon - Servidor de acesso remoto criptografado via SSH (Secure Shell).',
       cybersecRole: 'Alvo constante de ataques de força bruta (T1110) e roubo de chaves SSH autorizadas.'
     },
-    { 
-      pid: 520, 
-      ppid: 1, 
-      name: 'dbus-daemon', 
-      user: 'messagebus', 
-      cpu: 0.0, 
-      memoryMb: 6.2, 
-      path: '/usr/bin/dbus-daemon', 
+    {
+      pid: 520,
+      ppid: 1,
+      name: 'dbus-daemon',
+      user: 'messagebus',
+      cpu: 0.0,
+      memoryMb: 6.2,
+      path: '/usr/bin/dbus-daemon',
       expectedPath: '/usr/bin/dbus-daemon',
       status: 'running',
       description: 'Barramento de comunicação inter-processos (IPC) do sistema Linux.',
       cybersecRole: 'Permite comunicação segura entre processos; políticas D-Bus mal configuradas podem permitir elevação de privilégios.'
     },
-    { 
-      pid: 615, 
-      ppid: 1, 
-      name: 'cron', 
-      user: 'root', 
-      cpu: 0.0, 
-      memoryMb: 4.1, 
-      path: '/usr/sbin/cron', 
+    {
+      pid: 615,
+      ppid: 1,
+      name: 'cron',
+      user: 'root',
+      cpu: 0.0,
+      memoryMb: 4.1,
+      path: '/usr/sbin/cron',
       expectedPath: '/usr/sbin/cron',
       status: 'running',
       description: 'Daemon de execução e agendamento de tarefas programadas (crontab).',
       cybersecRole: 'Vetor mais frequente de persistência de malware no Linux (MITRE ATT&CK T1053.003).'
     },
-    { 
-      pid: 650, 
-      ppid: 1, 
-      name: 'auditd', 
-      user: 'root', 
-      cpu: 0.1, 
-      memoryMb: 11.0, 
-      path: '/sbin/auditd', 
+    {
+      pid: 650,
+      ppid: 1,
+      name: 'auditd',
+      user: 'root',
+      cpu: 0.1,
+      memoryMb: 11.0,
+      path: '/sbin/auditd',
       expectedPath: '/sbin/auditd',
       status: 'running',
       isProtectedProcess: true,
       description: 'Subsistema de auditoria de segurança do Linux Kernel.',
       cybersecRole: 'Gera telemetria sobre execução de comandos, chamadas de sistema (syscalls) e alterações de permissões sensíveis.'
     },
-    { 
-      pid: 782, 
-      ppid: 1, 
-      name: 'nginx', 
-      user: 'www-data', 
-      cpu: 0.4, 
-      memoryMb: 24.0, 
-      path: '/usr/sbin/nginx', 
+    {
+      pid: 782,
+      ppid: 1,
+      name: 'nginx',
+      user: 'www-data',
+      cpu: 0.4,
+      memoryMb: 24.0,
+      path: '/usr/sbin/nginx',
       expectedPath: '/usr/sbin/nginx',
-      status: 'running', 
+      status: 'running',
       networkPort: 80,
       description: 'Servidor Web HTTP/Reverse Proxy de alta performance.',
       cybersecRole: 'Executa isolado sob a conta www-data com menor privilégio para evitar acesso root em caso de exploração de vulnerabilidades web.'
     },
-    { 
-      pid: 1042, 
-      ppid: 412, 
-      name: 'bash', 
-      user: 'aluno', 
-      cpu: 0.0, 
-      memoryMb: 6.8, 
-      path: '/bin/bash', 
+    {
+      pid: 1042,
+      ppid: 412,
+      name: 'bash',
+      user: 'aluno',
+      cpu: 0.0,
+      memoryMb: 6.8,
+      path: '/bin/bash',
       expectedPath: '/bin/bash',
       status: 'running',
       description: 'Sessão interativa do aluno logado via SSH.',
       cybersecRole: 'Interpretador de comandos (T1059.004).'
     },
-    { 
-      pid: 1337, 
-      ppid: 1042, 
-      name: 'kworker_rev', 
-      user: 'backup-user', 
-      cpu: 1.8, 
-      memoryMb: 14.2, 
-      path: '/tmp/.hidden/kworker_rev', 
+    {
+      pid: 1337,
+      ppid: 1042,
+      name: 'kworker_rev',
+      user: 'backup-user',
+      cpu: 1.8,
+      memoryMb: 14.2,
+      path: '/tmp/.hidden/kworker_rev',
       expectedPath: '[kworker/*]',
       status: 'running',
       isSuspicious: true,
@@ -305,8 +305,8 @@ export class LinuxSimulatorEngine {
         this.currentUser = 'root';
         this.envVars.USER = 'root';
         this.envVars.HOME = '/root';
-        return { 
-          output: 'Autenticação bem-sucedida. Sessão elevada para root (UID=0).', 
+        return {
+          output: 'Autenticação bem-sucedida. Sessão elevada para root (UID=0).',
           exitCode: 0,
           syscalls,
           edrAlerts,
@@ -468,9 +468,9 @@ export class LinuxSimulatorEngine {
 
       case 'uname': {
         if (args.includes('-a')) {
-          return { 
-            output: 'Linux winlinx-lab 6.8.0-45-generic #45-Ubuntu SMP PREEMPT_DYNAMIC x86_64 GNU/Linux (Open Source Kernel)', 
-            exitCode: 0 
+          return {
+            output: 'Linux winlinx-lab 6.8.0-45-generic #45-Ubuntu SMP PREEMPT_DYNAMIC x86_64 GNU/Linux (Open Source Kernel)',
+            exitCode: 0
           };
         }
         return { output: 'Linux', exitCode: 0 };
@@ -547,6 +547,53 @@ export class LinuxSimulatorEngine {
         return { output: '', exitCode: 0 };
       }
 
+      case 'readelf': {
+        const target = args.find(a => !a.startsWith('-')) || 'binary.elf';
+        return {
+          output: `ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  Type:                              EXEC (Executable file)
+  Machine:                           Advanced Micro Devices X86-64
+  Entry point address:               0x401020
+  Number of section headers:         31
+
+Section Headers:
+  [Nr] Name              Type             Address           Offset
+  [ 1] .text             PROGBITS         0000000000401000  00001000 (R-X)
+  [ 2] .rodata           PROGBITS         0000000000406000  00006000 (R)
+  [ 3] .got.plt          PROGBITS         0000000000408000  00008000 (RW)
+  [ 4] .bss              NOBITS           0000000000408300  00008300 (RW)
+
+FLAG{WINLINX_LINUX_READELF_ELF_HEADER_AUDITED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_READELF_ELF_HEADER_AUDITED_2026}'
+          }
+        };
+      }
+
+      case 'klist': {
+        return {
+          output: `Ticket cache: FILE:/tmp/krb5cc_1000
+Default principal: aluno@CORP.LOCAL
+
+Valid starting       Expires              Service principal
+11/26/2026 20:00:10  11/27/2026 06:00:10  krbtgt/CORP.LOCAL@CORP.LOCAL
+        renew until 12/03/2026 20:00:10
+
+[Kerberos TGT Ativo no Linux PAM/SSSD]
+FLAG{WINLINX_LINUX_KERBEROS_KLIST_INSPECTED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_KERBEROS_KLIST_INSPECTED_2026}'
+          }
+        };
+      }
+
       case 'mkfifo': {
         const target = args[0];
         if (!target) return { output: 'mkfifo: informe o nome do arquivo fifo. Ex: mkfifo /tmp/pipe_ipc', exitCode: 1 };
@@ -581,8 +628,8 @@ export class LinuxSimulatorEngine {
           ringLevel: 'Ring 0 (Kernel Mode)',
           explanation: 'O Kernel Linux cria um nó especial de FIFO (pipe nomeado) no sistema de arquivos.'
         });
-        return { 
-          output: `prwxr-xr-x 1 ${this.currentUser} ${this.currentUser} 0 Nov 22 ${fifoName}`, 
+        return {
+          output: `prwxr-xr-x 1 ${this.currentUser} ${this.currentUser} 0 Nov 22 ${fifoName}`,
           exitCode: 0,
           stateChanges: {
             flagDiscovered: 'FLAG{WINLINX_LINUX_MKFIFO_PIPE_CREATED_2026}'
@@ -750,9 +797,9 @@ key        shmid      owner      perms      bytes      nattch     status
 
         if (node.type === 'file') {
           const inodePrefix = showInode ? `${node.inode || 131450} ` : '';
-          return { 
-            output: showLong ? `${inodePrefix}${node.permissions || '-rw-r--r--'} 1 ${node.owner || 'root'} ${node.group || 'root'} ${node.size || 1024} Nov 22 ${node.name}` : `${inodePrefix}${node.name}`, 
-            exitCode: 0 
+          return {
+            output: showLong ? `${inodePrefix}${node.permissions || '-rw-r--r--'} 1 ${node.owner || 'root'} ${node.group || 'root'} ${node.size || 1024} Nov 22 ${node.name}` : `${inodePrefix}${node.name}`,
+            exitCode: 0
           };
         }
 
@@ -1042,8 +1089,8 @@ ${this.firewallBlockedPorts.map(p => `DROP       tcp  --  0.0.0.0/0            0
         }
         if ((target.includes('find') || node.name === 'find') && (perms.includes('-s') || perms === '755' || perms === '0755')) {
           node.permissions = '-rwxr-xr-x';
-          return { 
-            output: `[SUCESSO] Permissão SUID removida do binário '${node.name}'. Vulnerabilidade de elevação corrigida!`, 
+          return {
+            output: `[SUCESSO] Permissão SUID removida do binário '${node.name}'. Vulnerabilidade de elevação corrigida!`,
             exitCode: 0,
             stateChanges: {
               flagDiscovered: 'FLAG{WINLINX_LINUX_SUID_FIXED_DEFENDER_2026}'
@@ -1196,8 +1243,8 @@ RELEVÂNCIA EM CIBERSEGURANÇA
       case 'setcap': {
         if (args.includes('-r')) {
           const target = args.find(a => !a.startsWith('-')) || '';
-          return { 
-            output: `[SUCESSO] Capabilities removidas de '${target}'. Risco de elevação de privilégio eliminado!`, 
+          return {
+            output: `[SUCESSO] Capabilities removidas de '${target}'. Risco de elevação de privilégio eliminado!`,
             exitCode: 0,
             stateChanges: {
               flagDiscovered: 'FLAG{WINLINX_LINUX_CAPABILITIES_HARDENED_2026}'
