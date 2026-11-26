@@ -55,10 +55,28 @@
 - **Exportação de Dossiê:** Exportação de evidências forenses em formato padronizado JSON para relatórios de incidentes.
 
 ### 7. Kernel Copilot & Trilha de Escalação de Privilégios no Terminal
-- **Comando `explain <termo>`:** Explicações pedagógicas em tempo real no terminal (`explain ptrace`, `explain lsass`, `explain aslr`, `explain dep`, `explain fork`, `explain seimpersonate`, `explain unquoted`, `explain runasppl`, `explain capabilities`).
+- **Comando `explain <termo>`:** Explicações pedagógicas em tempo real no terminal (`explain ptrace`, `explain lsass`, `explain aslr`, `explain dep`, `explain fork`, `explain seimpersonate`, `explain unquoted`, `explain runasppl`, `explain capabilities`, `explain posix`, `explain ntfs`, `explain ads`, `explain inode`).
 - **Comando `hint`:** Mentor interativo de Kernel com orientações defensivas e investigativas.
 - **Linux Capabilities (`getcap` / `setcap`):** Exploração e mitigação de binários com `cap_setuid+ep` (`/usr/bin/python3.11`).
 - **Seletor de Postura Operacional:** Alternância rápida entre **Blue Team (Defesa & Hardening)** e **Red Team (Ataque & PrivEsc)** no cabeçalho.
+
+### 8. Sistemas de Arquivos & Permissões (ext4 / POSIX vs NTFS / DACL)
+- **Mapeamento de Storage & Estruturas de Disco:**
+  - **Linux (ext4 / VFS):** Superblock, Inode Table (`stat`, `ls -i`), Blocos de Dados, Journaling e Links (Hard vs Soft).
+  - **Windows (NTFS):** Master File Table ($MFT), registros de 1024 bytes ($STANDARD_INFORMATION, $FILE_NAME, $SECURITY_DESCRIPTOR, $DATA), $LogFile e metadados de volume via `fsutil fsinfo ntfsinfo C:`.
+- **Calculadora Interativa de Permissões POSIX:**
+  - Seletor dinâmico de Owner, Group e Others (r, w, x) com pesos binários 4, 2 e 1.
+  - Bits especiais: **SUID (4000)**, **SGID (2000)** e **Sticky Bit (1000)** com geração imediata do comando `chmod <octal>`.
+- **NTFS Alternate Data Streams (ADS - $DATA):**
+  - Simulação forense de streams ocultos em arquivos legítimos (ex: `invoice.pdf:hidden_payload.ps1:$DATA`).
+  - Identificação de **Zone.Identifier (MOTW - Mark of the Web)** e inspeção via comando `dir /r` e `Get-Content -Stream`.
+
+### 9. Scanner & Auditoria de Vulnerabilidades de SO (Security Audit Dashboard)
+- **Varredura Automatizada & Pontuação de Hardening (0 a 100%):**
+  - **Auditoria Linux:** Detecção de binários SUID permissivos (`/bin/find` 4755), capabilities abusivas (`cap_setuid+ep`), processos anômalos em `/tmp/.hidden` e regras ausentes no Netfilter.
+  - **Auditoria Windows:** Detecção de Unquoted Service Paths, DACLs excessivas para `BUILTIN\Users`, ausência de isolamento `RunAsPPL` no LSASS e portas C2 abertas sem regra no WFP.
+- **Remediação Assistida:**
+  - Botão de um clique para aplicar comandos de remediação diretamente no terminal e acompanhar a atualização do índice de postura defensiva.
 
 ---
 
@@ -69,15 +87,17 @@
 npm test
 ```
 ```text
-✔ Linux Simulator: Navegação, VFS e I/O Redirection (13ms)
-✔ Linux Simulator: Detecção de Processos & Kill com Syscall (0.3ms)
-✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.2ms)
-✔ Windows Simulator: DACL, Processos e EDR Alerts (1.0ms)
-✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.2ms)
+✔ Linux Simulator: Navegação, VFS e I/O Redirection (52ms)
+✔ Linux Simulator: Detecção de Processos & Kill com Syscall (1.0ms)
+✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.4ms)
+✔ Windows Simulator: DACL, Processos e EDR Alerts (2.3ms)
+✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.3ms)
 ✔ Windows Simulator: Firewall netsh advfirewall Rule (0.2ms)
-✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (0.3ms)
+✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (1.9ms)
 ✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (0.9ms)
-ℹ tests 8, pass 8, fail 0
+✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (1.5ms)
+✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (0.9ms)
+ℹ tests 10, pass 10, fail 0
 ```
 
 ### Iniciar o Ambiente Interativo
@@ -113,3 +133,6 @@ npm run build
 | **T1134.001** | Token Impersonation / SeImpersonate | Kernel Copilot (`explain seimpersonate`) |
 | **T1059.001** | Process Creation Telemetry | Central Forense (Windows Event 4688) |
 | **T1543.003** | Windows Service Persistence | Central Forense (System Event 7045) |
+| **T1564.004** | Alternate Data Streams (ADS) | Storage & Permissões (`dir /r` & ADS Explorer) |
+| **T1083** | File and Directory Discovery | Storage & Permissões (`stat` & Inodes) |
+| **T1068** | Exploitation for Privilege Escalation | Scanner & Auditoria de Vulnerabilidades |

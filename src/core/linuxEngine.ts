@@ -21,6 +21,10 @@ export class LinuxSimulatorEngine {
     };
   }
 
+  public getRootFS(): FileNode {
+    return JSON.parse(JSON.stringify(this.rootFS));
+  }
+
   private processes: OSProcess[] = [
     { 
       pid: 1, 
@@ -609,6 +613,7 @@ export class LinuxSimulatorEngine {
       case 'ls': {
         const showAll = args.includes('-la') || args.includes('-al') || (args.includes('-l') && args.includes('-a'));
         const showLong = showAll || args.includes('-l');
+        const showInode = args.includes('-i') || args.includes('-li') || args.includes('-il');
         const targetPath = args.find(a => !a.startsWith('-')) || this.currentDir;
         const resolved = this.resolvePath(targetPath);
         const node = this.getNodeByPath(resolved);
@@ -630,8 +635,9 @@ export class LinuxSimulatorEngine {
         }
 
         if (node.type === 'file') {
+          const inodePrefix = showInode ? `${node.inode || 131450} ` : '';
           return { 
-            output: showLong ? `${node.permissions || '-rw-r--r--'} 1 ${node.owner || 'root'} ${node.group || 'root'} ${node.size || 1024} Nov 22 ${node.name}` : node.name, 
+            output: showLong ? `${inodePrefix}${node.permissions || '-rw-r--r--'} 1 ${node.owner || 'root'} ${node.group || 'root'} ${node.size || 1024} Nov 22 ${node.name}` : `${inodePrefix}${node.name}`, 
             exitCode: 0 
           };
         }
@@ -640,18 +646,73 @@ export class LinuxSimulatorEngine {
         if (showLong) {
           const lines = [
             `total ${entries.length * 4}`,
-            `drwxr-xr-x 2 ${node.owner || 'root'} ${node.group || 'root'} 4096 Nov 22 .`,
-            `drwxr-xr-x 2 root root 4096 Nov 22 ..`
+            `${showInode ? '102401 ' : ''}drwxr-xr-x 2 ${node.owner || 'root'} ${node.group || 'root'} 4096 Nov 22 .`,
+            `${showInode ? '102400 ' : ''}drwxr-xr-x 2 root root 4096 Nov 22 ..`
           ];
           for (const item of entries) {
+            const inodePrefix = showInode ? `${(item.inode || 140000 + Math.floor(item.name.length * 123)).toString().padEnd(7)} ` : '';
             lines.push(
-              `${item.permissions || (item.type === 'dir' ? 'drwxr-xr-x' : '-rw-r--r--')} 1 ${item.owner || 'aluno'} ${item.group || 'aluno'} ${(item.size || (item.type === 'dir' ? 4096 : 256)).toString().padStart(6)} Nov 22 ${item.name}`
+              `${inodePrefix}${item.permissions || (item.type === 'dir' ? 'drwxr-xr-x' : '-rw-r--r--')} 1 ${item.owner || 'aluno'} ${item.group || 'aluno'} ${(item.size || (item.type === 'dir' ? 4096 : 256)).toString().padStart(6)} Nov 22 ${item.name}`
             );
           }
           return { output: lines.join('\n'), exitCode: 0 };
         }
 
+        if (showInode) {
+          return { output: entries.map(e => `${e.inode || 140000 + e.name.length * 123} ${e.name}`).join('  '), exitCode: 0 };
+        }
+
         return { output: entries.map(e => e.name).join('  '), exitCode: 0 };
+      }
+
+      case 'stat': {
+        if (!args[0]) {
+          return { output: 'stat: informe o operando. Exemplo: stat /bin/find', exitCode: 1 };
+        }
+        const targetPath = args.find(a => !a.startsWith('-')) || args[0];
+        const resolved = this.resolvePath(targetPath);
+        const node = this.getNodeByPath(resolved);
+        if (!node) {
+          return { output: `stat: não foi possível obter estado de '${targetPath}': Arquivo ou diretório não encontrado`, exitCode: 1 };
+        }
+
+        const inodeNum = node.inode || (node.name === 'find' ? 131452 : 142055);
+        const octalPerm = node.permissions?.includes('s') ? '4755' : '0755';
+        const isDir = node.type === 'dir';
+
+        syscalls.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleTimeString(),
+          os: 'linux',
+          syscall: `newfstatat(AT_FDCWD, "${resolved}", &statbuf, 0)`,
+          subsystem: 'FileSystem',
+          parameters: `inode=${inodeNum}`,
+          returnCode: 0,
+          ringLevel: 'Ring 0 (Kernel Mode)',
+          explanation: 'O Kernel lê a estrutura stat diretamente da tabela de Inodes do sistema de arquivos ext4.'
+        });
+
+        return {
+          output: `  File: ${resolved}
+  Size: ${(node.size || 4096).toString().padEnd(12)} Blocks: 8          IO Block: 4096   ${isDir ? 'diretório' : 'arquivo comum'}
+Device: 802h/2050d  Inode: ${inodeNum}      Links: 1
+Access: (${octalPerm}/${node.permissions || (isDir ? 'drwxr-xr-x' : '-rw-r--r--')})  Uid: ( 1000/   ${node.owner || 'aluno'})   Gid: ( 1000/   ${node.group || 'aluno'})
+Access: 2026-11-26 10:20:15.000000000 -0300
+Modify: 2026-11-26 10:20:15.000000000 -0300
+Change: 2026-11-26 10:20:15.000000000 -0300
+ Birth: 2026-11-26 10:20:15.000000000 -0300`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: node.name === 'find' ? 'FLAG{WINLINX_LINUX_STAT_INODE_AUDITED_2026}' : undefined
+          }
+        };
+      }
+
+      case 'umask': {
+        if (!args[0]) {
+          return { output: '0022', exitCode: 0 };
+        }
+        return { output: `umask definida para ${args[0]}`, exitCode: 0 };
       }
 
       case 'cat': {
@@ -938,7 +999,27 @@ Exemplos:
 
           ufw: `[Defesa de Rede: Netfilter & UFW (Uncomplicated Firewall)]
 • Definição: O Netfilter opera nos hooks do Kernel Linux inspecionando pacotes na camada IP (PREROUTING, INPUT, FORWARD, OUTPUT, POSTROUTING).
-• UFW: Interface simplificada de user-mode que escreve regras nas tabelas do Netfilter para descartar tráfego malicioso (ex: conexões C2 na porta 4444).`
+• UFW: Interface simplificada de user-mode que escreve regras nas tabelas do Netfilter para descartar tráfego malicioso (ex: conexões C2 na porta 4444).`,
+
+          posix: `[Modelo de Permissões: POSIX Standard (UGO & Octal)]
+• Definição: Padrão que divide permissões em três esferas: User (u), Group (g) e Others (o), com pesos binários Read=4, Write=2 e Execute=1.
+• Bits Especiais: SUID (4000), SGID (2000) e Sticky Bit (1000).
+• Comparação: Diferente das complexas DACLs do Windows NTFS com herança e SIDs, o POSIX é direto, determinístico e implementado no Inode.`,
+
+          inode: `[Sistema de Arquivos: Inode (Index Node)]
+• Definição: Estrutura de dados fundamental no ext4/Unix que armazena todos os metadados de um arquivo (permissões, dono UID/GID, tamanho, timestamps, ponteiros para blocos de dados) exceto o próprio nome do arquivo.
+• Comando de Inspeção: stat <arquivo> ou ls -i.`,
+
+          ext4: `[Arquitetura de Storage: ext4 (Fourth Extended Filesystem)]
+• Definição: Sistema de arquivos padrão do Linux. Estrutura dividida em:
+  1) Superblock (metadados globais da partição)
+  2) Inode Table (metadados dos arquivos)
+  3) Data Blocks (conteúdo real)
+  4) Journaling (prevenção de corrupção contra falhas de energia).`,
+
+          umask: `[Máscara de Criação: umask (User File-Creation Mask)]
+• Definição: Filtro de 4 dígitos octais que determina as permissões padrão que NÃO serão concedidas quando novos arquivos ou pastas forem criados.
+• Exemplo: umask 0022 faz com que novos arquivos nasçam com permissão 644 (666 - 022) e pastas com 755 (777 - 022).`
         };
 
         const explanation = explanations[topic] || `[Conceito de SO: ${topic}]

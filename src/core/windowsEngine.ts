@@ -41,6 +41,10 @@ export class WindowsSimulatorEngine {
     };
   }
 
+  public getRootFS(): FileNode {
+    return JSON.parse(JSON.stringify(this.rootFS));
+  }
+
   private processes: OSProcess[] = [
     {
       pid: 0,
@@ -619,6 +623,9 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
           return { output: `Get-ChildItem : Não foi possível encontrar o caminho '${target}'.`, exitCode: 1 };
         }
 
+        const showStreams = args.includes('/r') || args.includes('-r');
+        let adsDiscovered = false;
+
         if (node.type === 'file') {
           return {
             output: `    Directory: ${normalized}\n\nMode                LastWriteTime         Length Name\n----                -------------         ------ ----\n-a----       22/11/2026     10:00        ${node.size || 1024} ${node.name}`,
@@ -637,10 +644,22 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         for (const item of entries) {
           const mode = item.type === 'dir' ? 'd-----' : '-a----';
           const size = item.type === 'dir' ? '' : (item.size || 1024).toString().padStart(6);
-          lines.push(`${mode}       22/11/2026     10:00        ${size.padEnd(8)} ${item.name}`);
+          lines.push(`${mode}       26/11/2026     10:15        ${size.padEnd(8)} ${item.name}`);
+          if (showStreams && item.alternateStreams) {
+            adsDiscovered = true;
+            for (const [sName, sContent] of Object.entries(item.alternateStreams)) {
+              lines.push(`                             ${sContent.length.toString().padStart(8)} ${item.name}:${sName}:$DATA`);
+            }
+          }
         }
 
-        return { output: lines.join('\n'), exitCode: 0 };
+        return { 
+          output: lines.join('\n'), 
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: adsDiscovered ? 'FLAG{WINLINX_NTFS_ADS_STREAM_DISCOVERED_2026}' : undefined
+          }
+        };
       }
 
       case 'type':
@@ -670,7 +689,54 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
         if (node.type === 'dir') {
           return { output: `Get-Content : '${args[0]}' é um diretório e não um arquivo de texto.`, exitCode: 1 };
         }
+
+        // Suporte a Alternate Data Stream via parâmetro -Stream
+        const streamIdx = args.findIndex(a => a.toLowerCase() === '-stream');
+        if (streamIdx !== -1 && args[streamIdx + 1]) {
+          const targetStream = args[streamIdx + 1];
+          if (node.alternateStreams && node.alternateStreams[targetStream]) {
+            return {
+              output: node.alternateStreams[targetStream],
+              exitCode: 0,
+              stateChanges: {
+                flagDiscovered: 'FLAG{WINLINX_NTFS_ADS_STREAM_DISCOVERED_2026}'
+              }
+            };
+          }
+          return { output: `Get-Content : Fluxo de dados alternativo '${targetStream}' não encontrado.`, exitCode: 1 };
+        }
+
         return { output: node.content || `[Arquivo binário: ${node.name}]`, exitCode: 0 };
+      }
+
+      case 'fsutil': {
+        const fullCmd = args.join(' ').toLowerCase();
+        if (fullCmd.includes('fsinfo') && fullCmd.includes('ntfsinfo')) {
+          return {
+            output: `NTFS Volume Information :
+NTFS Version                     : 3.1
+LFS Version                      : 2.0
+Total Sectors                    : 209,715,199  (100.0 GB)
+Total Clusters                   : 26,214,399
+Free Clusters                    : 15,482,900
+Bytes Per Sector                 : 512
+Bytes Per Physical Sector        : 4096
+Bytes Per Cluster                : 4096
+Bytes Per FileRecord Segment     : 1024
+Clusters Per FileRecord Segment  : 0
+Mft Valid Data Length            : 268.43 MB
+Mft Start Lcn                    : 0x00000000000c0000
+Mft2 Start Lcn                   : 0x0000000000000002
+Mft Zone Start                   : 0x00000000000c0000
+Mft Zone End                     : 0x00000000000cc820
+MFT record structure             : $STANDARD_INFO, $FILE_NAME, $SECURITY_DESCRIPTOR, $DATA`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_WINDOWS_FSUTIL_MFT_AUDITED_2026}'
+            }
+          };
+        }
+        return { output: 'Sintaxe: fsutil fsinfo ntfsinfo C:', exitCode: 0 };
       }
 
       case 'ps':
@@ -990,7 +1056,25 @@ Se o invasor tiver permissão de escrita em C:\\, ele coloca 'Program.exe' e gan
 
           icacls: `[Controle de Acesso: DACL (Discretionary Access Control List)]
 • Definição: Lista associada a objetos NTFS (arquivos, diretórios) que define permissões para SIDs (Usuários e Grupos).
-• Boas práticas: Nunca conceder Write (W) ou Modify (M) para 'BUILTIN\\Users' em diretórios de programas do sistema.`
+• Boas práticas: Nunca conceder Write (W) ou Modify (M) para 'BUILTIN\\Users' em diretórios de programas do sistema.`,
+
+          ntfs: `[Sistema de Arquivos: NTFS (New Technology File System)]
+• Arquitetura: Sistema de arquivos transacional do Windows NT.
+• Estrutura: Tudo no NTFS é um arquivo indexado na Master File Table ($MFT).
+• Recursos: Suporte nativo a DACLs/SACLS (segurança granular), Journaling ($LogFile contra corrupção), compressão, cotas e Alternate Data Streams ($DATA).`,
+
+          ads: `[Recurso de Storage: Alternate Data Streams (ADS)]
+• Definição: Permite a um arquivo NTFS conter múltiplos fluxos de dados com o formato nome.ext:fluxo:$DATA.
+• Uso Legítimo: Zone.Identifier (MOTW - Mark of the Web, sinalizando downloads da internet).
+• Uso Malicioso (T1564.004): Ocultação de executáveis ou scripts maliciosos sem alterar o tamanho do arquivo principal exibido no Windows Explorer. Inspeção: dir /r.`,
+
+          mft: `[Estrutura Central: Master File Table ($MFT)]
+• Definição: Banco de dados estruturado onde cada arquivo ou diretório ocupa ao menos um registro de 1024 bytes contendo atributos ($STANDARD_INFO, $FILE_NAME, $SECURITY_DESCRIPTOR, $DATA).
+• Inspeção CLI: fsutil fsinfo ntfsinfo C:`,
+
+          dacl: `[Segurança do Windows: DACL vs SACL]
+• DACL (Discretionary ACL): Define QUEM pode ou não pode acessar um recurso (Allow/Deny ACEs).
+• SACL (System ACL): Define O QUE deve ser auditado no Log de Eventos de Segurança (Event ID 4663) quando o arquivo é acessado.`
         };
 
         const out = winExplanations[topic] || `[Conceito Windows NT: ${topic}]

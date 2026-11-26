@@ -16,7 +16,9 @@ import {
   Network,
   FileSearch,
   Crosshair,
-  ShieldCheck
+  ShieldCheck,
+  FolderTree,
+  Bug
 } from 'lucide-react';
 import { OperationalPosture } from '../types/simulator';
 
@@ -27,6 +29,8 @@ export type ActiveTab =
   | 'anatomy'
   | 'kernel'
   | 'memory'
+  | 'filesystem'
+  | 'security-audit'
   | 'registry'
   | 'firewall'
   | 'forensics'
@@ -133,6 +137,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Cpu className="w-3.5 h-3.5 text-cyan-400" />
               <span>Memória</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('filesystem')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'filesystem'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FolderTree className="w-3.5 h-3.5 text-amber-400" />
+              <span>Sistemas de Arquivos</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('security-audit')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'security-audit'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Bug className="w-3.5 h-3.5 text-rose-400" />
+              <span>Auditoria de Vulns</span>
             </button>
 
             <button

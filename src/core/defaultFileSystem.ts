@@ -24,7 +24,8 @@ export function createInitialLinuxFS(): FileNode {
             permissions: '-rwsr-xr-x', // SUID propositalmente vulnerável para o Lab de Permissões!
             owner: 'root', 
             group: 'root', 
-            size: 210000 
+            size: 210000,
+            inode: 131452
           },
           'su': { name: 'su', type: 'file', permissions: '-rwsr-xr-x', owner: 'root', group: 'root', size: 67800 },
           'ping': { name: 'ping', type: 'file', permissions: '-rwxr-xr-x', owner: 'root', group: 'root', size: 75000 }
@@ -336,6 +337,23 @@ export function createInitialWindowsFS(): FileNode {
                     type: 'file',
                     size: 52,
                     content: `FLAG{WINLINX_WINDOWS_DACLS_DEFENDER_2026}`
+                  }
+                }
+              },
+              'Downloads': {
+                name: 'Downloads',
+                type: 'dir',
+                permissions: 'NTFS: Aluno:(F)',
+                children: {
+                  'invoice.pdf': {
+                    name: 'invoice.pdf',
+                    type: 'file',
+                    size: 45210,
+                    content: '%PDF-1.7 - Fatura de Servicos Corporativos WinLinx 2026',
+                    alternateStreams: {
+                      'Zone.Identifier': '[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=http://evil-c2.net/payload.exe',
+                      'hidden_payload.ps1': 'powershell -enc aW52b2tlLWV2aWw= # FLAG{WINLINX_NTFS_ADS_STREAM_DISCOVERED_2026}'
+                    }
                   }
                 }
               }

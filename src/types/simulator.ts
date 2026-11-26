@@ -10,9 +10,20 @@ export interface FileNode {
   owner?: string; // ex: "root", "aluno", "SYSTEM", "Administrator"
   group?: string; // ex: "root", "developers", "Administrators"
   size?: number;
+  inode?: number;
   updatedAt?: string;
   children?: Record<string, FileNode>;
   isProtected?: boolean;
+  alternateStreams?: Record<string, string>; // Windows Alternate Data Streams (ADS)
+  ntfsAcl?: {
+    ownerSid: string;
+    aces: Array<{
+      type: 'ALLOW' | 'DENY';
+      trustee: string;
+      rights: string;
+      inheritance: string;
+    }>;
+  };
 }
 
 export interface OSProcess {
@@ -178,4 +189,20 @@ export interface CurriculumModule {
     offensePerspective: string;
   }[];
   labIds: string[];
+}
+
+export interface SecurityFinding {
+  id: string;
+  os: OSType;
+  title: string;
+  category: 'Permissions' | 'Kernel' | 'Service' | 'Network' | 'Credentials';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  cvss: number;
+  mitreTechnique: string;
+  mitreId: string;
+  targetResource: string;
+  description: string;
+  exploitationVector: string;
+  remediationCommand: string;
+  isRemediated: boolean;
 }

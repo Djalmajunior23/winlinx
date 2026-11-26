@@ -14,9 +14,11 @@ import { RegistryViewer } from './components/RegistryViewer';
 import { HostFirewallSimulator } from './components/HostFirewallSimulator';
 import { KernelArchitectureView } from './components/KernelArchitectureView';
 import { ForensicLogsViewer } from './components/ForensicLogsViewer';
+import { FileSystemPermissionsExplorer } from './components/FileSystemPermissionsExplorer';
+import { SecurityAuditView } from './components/SecurityAuditView';
 import { CertificateModal } from './components/CertificateModal';
 import { PRACTICAL_LABS } from './data/labs';
-import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture } from './types/simulator';
+import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
 import { WindowsSimulatorEngine } from './core/windowsEngine';
 import { createInitialLinuxFS, createInitialWindowsFS } from './core/defaultFileSystem';
@@ -137,6 +139,28 @@ export function App() {
     setActiveTab('labs');
   };
 
+  const handleExecuteRemediation = (os: OSType, command: string) => {
+    if (os === 'linux') {
+      const res = linuxEngine.execute(command);
+      if (res.syscalls) handleRecordSyscalls(res.syscalls);
+      if (res.edrAlerts) handleRecordEDRAlerts(res.edrAlerts);
+      if (res.forensicLogs) handleRecordForensicLogs(res.forensicLogs);
+      if (res.stateChanges?.flagDiscovered) {
+        handleCaptureFlag(res.stateChanges.flagDiscovered);
+      }
+      showNotification(`[Linux Remediação] Comando executado: ${command}`);
+    } else {
+      const res = windowsEngine.execute(command);
+      if (res.syscalls) handleRecordSyscalls(res.syscalls);
+      if (res.edrAlerts) handleRecordEDRAlerts(res.edrAlerts);
+      if (res.forensicLogs) handleRecordForensicLogs(res.forensicLogs);
+      if (res.stateChanges?.flagDiscovered) {
+        handleCaptureFlag(res.stateChanges.flagDiscovered);
+      }
+      showNotification(`[Windows Remediação] Comando executado: ${command}`);
+    }
+  };
+
   const totalTasksCount = PRACTICAL_LABS.reduce((acc, l) => acc + l.tasks.length, 0);
 
   return (
@@ -199,6 +223,21 @@ export function App() {
 
         {activeTab === 'memory' && (
           <VirtualMemoryInspector />
+        )}
+
+        {activeTab === 'filesystem' && (
+          <FileSystemPermissionsExplorer
+            linuxRootFS={linuxEngine.getRootFS?.()}
+            windowsRootFS={windowsEngine.getRootFS?.()}
+          />
+        )}
+
+        {activeTab === 'security-audit' && (
+          <SecurityAuditView
+            flagsFound={flagsFound}
+            completedTasks={completedTasks}
+            onExecuteRemediation={handleExecuteRemediation}
+          />
         )}
 
         {activeTab === 'registry' && (

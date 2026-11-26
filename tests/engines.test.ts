@@ -155,3 +155,48 @@ test('Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID
   const privRes = engine.execute('whoami /priv');
   assert.ok(privRes.forensicLogs && privRes.forensicLogs.some(l => l.eventId === 4672));
 });
+
+test('Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask', () => {
+  const engine = new LinuxSimulatorEngine(createInitialLinuxFS());
+
+  // Teste de stat em binário com Inode e permissões octais
+  const statRes = engine.execute('stat /bin/find');
+  assert.strictEqual(statRes.exitCode, 0);
+  assert.ok(statRes.output.includes('Inode: 131452'));
+  assert.ok(statRes.output.includes('Access: (4755/-rwsr-xr-x)'));
+  assert.ok(statRes.syscalls && statRes.syscalls.some(s => s.syscall.includes('newfstatat')));
+  assert.ok(statRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_STAT_INODE_AUDITED'));
+
+  // Teste de ls com flag -i (Inode display)
+  const lsiRes = engine.execute('ls -i /bin');
+  assert.strictEqual(lsiRes.exitCode, 0);
+  assert.ok(lsiRes.output.includes('131452 find'));
+
+  // Teste de umask
+  const umaskRes = engine.execute('umask');
+  assert.strictEqual(umaskRes.exitCode, 0);
+  assert.strictEqual(umaskRes.output, '0022');
+});
+
+test('Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT', () => {
+  const engine = new WindowsSimulatorEngine(createInitialWindowsFS());
+
+  // Teste de dir /r listando Alternate Data Streams ($DATA)
+  const dirRRes = engine.execute('dir /r C:\\Users\\Aluno\\Downloads');
+  assert.strictEqual(dirRRes.exitCode, 0);
+  assert.ok(dirRRes.output.includes('invoice.pdf:hidden_payload.ps1:$DATA'));
+  assert.ok(dirRRes.output.includes('invoice.pdf:Zone.Identifier:$DATA'));
+  assert.ok(dirRRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_NTFS_ADS_STREAM_DISCOVERED'));
+
+  // Teste de leitura de Stream ADS individual com Get-Content -Stream
+  const streamRes = engine.execute('Get-Content "C:\\Users\\Aluno\\Downloads\\invoice.pdf" -Stream hidden_payload.ps1');
+  assert.strictEqual(streamRes.exitCode, 0);
+  assert.ok(streamRes.output.includes('FLAG{WINLINX_NTFS_ADS_STREAM_DISCOVERED_2026}'));
+
+  // Teste de fsutil fsinfo ntfsinfo C:
+  const fsutilRes = engine.execute('fsutil fsinfo ntfsinfo C:');
+  assert.strictEqual(fsutilRes.exitCode, 0);
+  assert.ok(fsutilRes.output.includes('NTFS Version'));
+  assert.ok(fsutilRes.output.includes('Mft Start Lcn'));
+  assert.ok(fsutilRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_FSUTIL_MFT_AUDITED'));
+});
