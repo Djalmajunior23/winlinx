@@ -200,3 +200,64 @@ test('Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS)
   assert.ok(fsutilRes.output.includes('Mft Start Lcn'));
   assert.ok(fsutilRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_FSUTIL_MFT_AUDITED'));
 });
+
+test('Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner', () => {
+  const engine = new LinuxSimulatorEngine(createInitialLinuxFS());
+
+  // 1. mkfifo
+  const fifoRes = engine.execute('mkfifo /tmp/my_test_pipe');
+  assert.strictEqual(fifoRes.exitCode, 0);
+  assert.ok(fifoRes.output.includes('prwxr-xr-x'));
+  assert.ok(fifoRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_MKFIFO_PIPE_CREATED_2026}'));
+
+  // 2. lsmod e rmmod
+  const lsmodRes = engine.execute('lsmod');
+  assert.strictEqual(lsmodRes.exitCode, 0);
+  assert.ok(lsmodRes.output.includes('rootkit_diamorphine'));
+
+  const rmmodRes = engine.execute('rmmod rootkit_diamorphine');
+  assert.strictEqual(rmmodRes.exitCode, 0);
+  assert.ok(rmmodRes.output.includes('descarregado'));
+  assert.ok(rmmodRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_LKM_ROOTKIT_NEUTRALIZED_2026}'));
+
+  // 3. restore-files
+  const restoreRes = engine.execute('restore-files');
+  assert.strictEqual(restoreRes.exitCode, 0);
+  assert.ok(restoreRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_RANSOMWARE_RECOVERED_2026}'));
+
+  // 4. bash script runner
+  engine.execute('echo "ls /home/aluno" > /home/aluno/script.sh');
+  const bashRes = engine.execute('bash /home/aluno/script.sh');
+  assert.strictEqual(bashRes.exitCode, 0);
+  assert.ok(bashRes.output.includes('Script Runner'));
+  assert.ok(bashRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_BASH_SCRIPT_EXECUTED_2026}'));
+});
+
+test('Windows Simulator: Named Pipes (\\\\.\\pipe\\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner', () => {
+  const engine = new WindowsSimulatorEngine(createInitialWindowsFS());
+
+  // 1. Named Pipes via dir \\.\pipe\
+  const pipeRes = engine.execute('dir \\\\.\\pipe\\');
+  assert.strictEqual(pipeRes.exitCode, 0);
+  assert.ok(pipeRes.output.includes('spoolss'));
+  assert.ok(pipeRes.output.includes('samr'));
+  assert.ok(pipeRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_NAMED_PIPES_AUDITED_2026}'));
+
+  // 2. driverquery (BYOVD detection)
+  const driverRes = engine.execute('driverquery');
+  assert.strictEqual(driverRes.exitCode, 0);
+  assert.ok(driverRes.output.includes('gdrv.sys'));
+  assert.ok(driverRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_BYOVD_DRIVER_AUDITED_2026}'));
+
+  // 3. restore-files
+  const restoreRes = engine.execute('restore-files');
+  assert.strictEqual(restoreRes.exitCode, 0);
+  assert.ok(restoreRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_RANSOMWARE_RECOVERED_2026}'));
+
+  // 4. powershell script runner
+  engine.execute('echo "whoami" > C:\\Users\\Aluno\\script.ps1');
+  const pwshRes = engine.execute('powershell -File C:\\Users\\Aluno\\script.ps1');
+  assert.strictEqual(pwshRes.exitCode, 0);
+  assert.ok(pwshRes.output.includes('PowerShell Script Runner'));
+  assert.ok(pwshRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_POWERSHELL_SCRIPT_EXECUTED_2026}'));
+});

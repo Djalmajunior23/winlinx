@@ -34,6 +34,10 @@ export type ActiveTab =
   | 'registry'
   | 'firewall'
   | 'forensics'
+  | 'ipc'
+  | 'drivers'
+  | 'threat-injector'
+  | 'lab-builder'
   | 'dual-lab' 
   | 'comparator' 
   | 'labs' 
@@ -197,6 +201,54 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <FileSearch className="w-3.5 h-3.5 text-amber-400" />
               <span>Logs & SIEM</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ipc')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'ipc'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Network className="w-3.5 h-3.5 text-indigo-400" />
+              <span>IPC Pipes</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('drivers')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'drivers'
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Drivers/BYOVD</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('threat-injector')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'threat-injector'
+                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
+              <span>Threat Injector</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('lab-builder')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'lab-builder'
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FolderGit2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Lab Builder</span>
             </button>
 
             <button

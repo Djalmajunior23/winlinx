@@ -604,6 +604,24 @@ ${this.currentUser.includes('SYSTEM') ? 'BUILTIN\\Administrators                
       case 'ls':
       case 'get-childitem': {
         const target = args.find(a => !a.startsWith('-') && !a.startsWith('/')) || this.currentDir;
+
+        if (target.includes('pipe')) {
+          return {
+            output: `    Directory: \\\\.\\pipe\\
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+-a----       26/11/2026     10:00              0 spoolss
+-a----       26/11/2026     10:00              0 samr
+-a----       26/11/2026     10:00              0 lsass
+-a----       26/11/2026     10:00              0 winlinx_ipc`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_WINDOWS_NAMED_PIPES_AUDITED_2026}'
+            }
+          };
+        }
+
         const normalized = this.normalizeWindowsPath(target);
         const node = this.getNodeByWindowsPath(normalized);
 
@@ -1093,12 +1111,139 @@ Recurso estrutural do Windows NT. Digite 'explain' sem parâmetros para ver tóp
         };
       }
 
+      case 'driverquery': {
+        syscalls.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleTimeString(),
+          os: 'windows',
+          syscall: 'NtQuerySystemInformation(SystemModuleInformation)',
+          subsystem: 'Security',
+          parameters: 'ModuleListBuffer, sizeof(SYSTEM_MODULE_INFORMATION)',
+          returnCode: 0,
+          ringLevel: 'Ring 0 (Kernel Mode)',
+          explanation: 'Driver query via NtQuerySystemInformation para listar módulos de Ring 0 carregados.'
+        });
+
+        const flagged = '[AUDIT ALERT] Driver de terceiros com vulnerabilidade conhecida detectado: gdrv.sys (Gigabyte Driver CVE-2018-19320)!\nFLAG{WINLINX_WINDOWS_BYOVD_DRIVER_AUDITED_2026}';
+
+        return {
+          output: `Nome do Módulo      Nome de Exibição           Tipo de Driver  Data de Vínculo
+=================== ========================== =============== ======================
+ntoskrnl.exe        NT Kernel & System         Kernel          26/02/2026 04:12:15
+hal.dll             Hardware Abstraction Layer Kernel          26/02/2026 04:12:18
+ntfs.sys            NTFS File System Driver    File System     26/02/2026 04:14:02
+fltmgr.sys          Filter Manager             File System     26/02/2026 04:14:05
+tcpip.sys           TCP/IP Protocol Driver     Kernel          26/02/2026 04:15:30
+cng.sys             Cryptography Next Gen      Kernel          26/02/2026 04:15:32
+gdrv.sys            GIGABYTE Overclock Helper  Kernel          19/08/2018 10:22:00 [ALERTA]
+
+${flagged}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_BYOVD_DRIVER_AUDITED_2026}'
+          }
+        };
+      }
+
+      case 'restore-files': {
+        const desktopNode = this.getNodeByWindowsPath('C:\\Users\\Aluno\\Desktop');
+        if (desktopNode && desktopNode.children) {
+          if (desktopNode.children['LEIA_ME_RESGATE.txt']) {
+            delete desktopNode.children['LEIA_ME_RESGATE.txt'];
+          }
+          if (desktopNode.children['relatorio_financeiro.docx.locked']) {
+            delete desktopNode.children['relatorio_financeiro.docx.locked'];
+            desktopNode.children['relatorio_financeiro.docx'] = {
+              name: 'relatorio_financeiro.docx',
+              type: 'file',
+              permissions: 'NTFS: BUILTIN\\Users:(R), Administrators:(F)',
+              owner: 'ALUNO-PC\\Aluno',
+              content: 'Dados Financeiros Confidenciais Restaurados.',
+              size: 2048
+            };
+          }
+        }
+        return {
+          output: `[VSS ShadowCopy / Incident Response Recovery]
+Processo de restauração de arquivos criptografados concluído com sucesso via Volume Shadow Copy (VSS).
+Arquivos '.locked' revertidos e nota de resgate removida.
+FLAG{WINLINX_WINDOWS_RANSOMWARE_RECOVERED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_RANSOMWARE_RECOVERED_2026}'
+          }
+        };
+      }
+
+      case 'powershell':
+      case 'pwsh': {
+        // Suporte para execução de scripts: powershell -File script.ps1 ou powershell .\script.ps1
+        let scriptTarget = '';
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '-File' || args[i] === '-f' || args[i] === '-ExecutionPolicy') {
+            if (args[i + 1] && !args[i + 1].startsWith('-')) {
+              scriptTarget = args[i + 1];
+              i++;
+            }
+          } else if (args[i].endsWith('.ps1')) {
+            scriptTarget = args[i];
+            break;
+          }
+        }
+
+        if (!scriptTarget && args.length > 0 && args[0].endsWith('.ps1')) {
+          scriptTarget = args[0];
+        }
+
+        if (scriptTarget) {
+          const scriptNode = this.getNodeByWindowsPath(scriptTarget);
+          if (!scriptNode || scriptNode.type !== 'file') {
+            return {
+              output: `FileNotSpecified : O arquivo de script '${scriptTarget}' não foi encontrado.`,
+              exitCode: 1
+            };
+          }
+
+          const lines = (scriptNode.content || '').split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
+          let combinedOutput = `[PowerShell Script Runner: ${scriptTarget}]\n`;
+          let lastExit = 0;
+
+          for (const line of lines) {
+            combinedOutput += `PS ${this.currentDir}> ${line}\n`;
+            const res = this.execute(line);
+            if (res.output) combinedOutput += `${res.output}\n`;
+            lastExit = res.exitCode;
+          }
+
+          combinedOutput += `\n[Script Executado com Sucesso]
+FLAG{WINLINX_WINDOWS_POWERSHELL_SCRIPT_EXECUTED_2026}`;
+
+          return {
+            output: combinedOutput.trim(),
+            exitCode: lastExit,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_WINDOWS_POWERSHELL_SCRIPT_EXECUTED_2026}'
+            }
+          };
+        }
+
+        return {
+          output: `Windows PowerShell
+Copyright (C) Microsoft Corporation. Todos os direitos reservados.
+Digite um comando ou execute um script: powershell -File <script.ps1>`,
+          exitCode: 0
+        };
+      }
+
       case 'help':
       case 'get-help': {
         return {
           output: `Comandos suportados no Simulador Windows PowerShell (WinLinx Enterprise):
 - Processos & Árvore: Get-Process, ps, pstree, tasklist, Stop-Process -Id <PID>, taskkill, netstat -ano
 - VFS & Arquivos: pwd, Get-Location, cd, dir, ls, Get-ChildItem, cat, type, Get-Content, echo [> | >>]
+- Scripts & Automação: powershell -File <script.ps1>
+- Drivers & Kernel: driverquery
+- Resposta a Incidentes: restore-files
 - Identidade & Token: whoami, whoami /priv, whoami /all, elevate
 - Segurança & DACL: icacls <caminho>, icacls <caminho> /remove "BUILTIN\\Users"
 - Serviços & Persistência: Get-Service, sc qc <serviço>, Get-ScheduledTask

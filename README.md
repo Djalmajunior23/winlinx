@@ -80,6 +80,40 @@
 
 ---
 
+### 10. Módulo de Comunicação Inter-Processos (IPC: Unix Sockets vs Named Pipes)
+- **Comparativo Técnico de Arquiteturas IPC:**
+  - **Linux (POSIX & SysV):** Pipes Anônimos e Nomeados via `mkfifo`, Unix Domain Sockets (`/var/run/docker.sock`), Memória Compartilhada (`/dev/shm`), Filas de Mensagens e Sinais de Kernel (`kill -SIG*`).
+  - **Windows NT:** Named Pipes (`\\.\pipe\*`), ALPC (Advanced Local Procedure Call) e Mailslots.
+- **Auditoria & Vetores de Exploração:**
+  - Inspeção de Named Pipes no Windows via `dir \\.\pipe\` (`spoolss`, `samr`, `lsass`).
+  - Explicação e simulação de abuso de personificação de tokens (`ImpersonateNamedPipeClient` / PrintSpoofer) e escape de containers via Docker Socket.
+
+### 11. Subsistema de Drivers de Kernel, Módulos LKMs e Mecânica BYOVD
+- **Módulos de Kernel Linux (LKM):**
+  - Listagem com `lsmod` e descarregamento dinâmico de rootkits via `rmmod rootkit_diamorphine`.
+  - Análise de ganchos em `sys_call_table`.
+- **Drivers de Dispositivo Windows (`.sys`):**
+  - Auditoria com `driverquery` identificando drivers críticos (`ntfs.sys`, `fltmgr.sys`) e drivers vulneráveis com assinatura válida (`gdrv.sys` - CVE-2018-19320).
+  - Simulação da técnica **BYOVD (Bring Your Own Vulnerable Driver - MITRE T1068)** para burlar o DSE (Driver Signature Enforcement).
+
+### 12. Threat Injector em Tempo Real & Centro de Resposta a Incidentes (IR)
+- **Simulação Ativa de Ataques:**
+  - **Ransomware:** Criptografia de arquivos (`.locked`), geração de nota de resgate `LEIA_ME_RESGATE.txt` e mitigação via `restore-files`.
+  - **Cryptominer:** Picos de CPU para 100%, evasão de processos e remediação com encerramento de threads e bloqueio de pool de mineração.
+  - **Kernel Rootkit:** Ocultação de PIDs e ganchos de chamadas com descarregamento de LKM.
+- **Painel de Triagem & Saúde:**
+  - Timer regressivo de 180 segundos para resposta a incidentes, barra de saúde do sistema e checklists de contenção, erradicação e recuperação.
+
+### 13. Runner de Scripts Multi-Linha & Construtor Customizado de Labs CTF
+- **Interpretadores de Scripts no VFS:**
+  - Linux: Execução sequencial de scripts `.sh` via `bash <script.sh>` ou `sh <script.sh>`.
+  - Windows: Execução sequencial de scripts `.ps1` via `powershell -File <script.ps1>`.
+- **Custom Lab Builder para Instrutores:**
+  - Interface interativa para criar desafios personalizados com título, descrição, sistema operacional alvo, tarefas e flags customizadas.
+  - Exportação e importação instantânea de esquemas JSON `.winlinx-lab.json` para compartilhamento entre turmas.
+
+---
+
 ## 💻 Comandos e Testes Automatizados
 
 ### Rodar a Suíte Completa de Testes
@@ -87,17 +121,20 @@
 npm test
 ```
 ```text
-✔ Linux Simulator: Navegação, VFS e I/O Redirection (52ms)
-✔ Linux Simulator: Detecção de Processos & Kill com Syscall (1.0ms)
-✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.4ms)
-✔ Windows Simulator: DACL, Processos e EDR Alerts (2.3ms)
-✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.3ms)
-✔ Windows Simulator: Firewall netsh advfirewall Rule (0.2ms)
-✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (1.9ms)
-✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (0.9ms)
-✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (1.5ms)
-✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (0.9ms)
-ℹ tests 10, pass 10, fail 0
+✔ Linux Simulator: Navegação, VFS e I/O Redirection (24.6ms)
+✔ Linux Simulator: Detecção de Processos & Kill com Syscall (0.8ms)
+✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.3ms)
+✔ Windows Simulator: DACL, Processos e EDR Alerts (2.6ms)
+✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.5ms)
+✔ Windows Simulator: Firewall netsh advfirewall Rule (0.3ms)
+✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (0.5ms)
+✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (0.3ms)
+✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (0.3ms)
+✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (0.4ms)
+✔ Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner (0.5ms)
+✔ Windows Simulator: Named Pipes (\\.\pipe\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner (0.5ms)
+ℹ tests 12, pass 12, fail 0
+```
 ```
 
 ### Iniciar o Ambiente Interativo

@@ -547,6 +547,120 @@ export class LinuxSimulatorEngine {
         return { output: '', exitCode: 0 };
       }
 
+      case 'mkfifo': {
+        const target = args[0];
+        if (!target) return { output: 'mkfifo: informe o nome do arquivo fifo. Ex: mkfifo /tmp/pipe_ipc', exitCode: 1 };
+        const resolved = this.resolvePath(target);
+        const parts = resolved.split('/').filter(Boolean);
+        const fifoName = parts.pop();
+        const parentPath = '/' + parts.join('/');
+        const parent = this.getNodeByPath(parentPath);
+        if (!parent || parent.type !== 'dir') {
+          return { output: `mkfifo: não é possível criar '${target}': Diretório inexistente`, exitCode: 1 };
+        }
+        if (!parent.children) parent.children = {};
+        if (fifoName) {
+          parent.children[fifoName] = {
+            name: fifoName,
+            type: 'file',
+            permissions: 'prwxr-xr-x',
+            owner: this.currentUser,
+            group: this.currentUser,
+            size: 0,
+            inode: 154820
+          };
+        }
+        syscalls.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleTimeString(),
+          os: 'linux',
+          syscall: `mknodat(AT_FDCWD, "${resolved}", S_IFIFO|0666, 0)`,
+          subsystem: 'FileSystem',
+          parameters: 'type=FIFO (Named Pipe)',
+          returnCode: 0,
+          ringLevel: 'Ring 0 (Kernel Mode)',
+          explanation: 'O Kernel Linux cria um nó especial de FIFO (pipe nomeado) no sistema de arquivos.'
+        });
+        return { 
+          output: `prwxr-xr-x 1 ${this.currentUser} ${this.currentUser} 0 Nov 22 ${fifoName}`, 
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_MKFIFO_PIPE_CREATED_2026}'
+          }
+        };
+      }
+
+      case 'lsmod': {
+        const lines = [
+          'Module                  Size  Used by',
+          'rootkit_diamorphine    49152  0 [UNVERIFIED]',
+          'overlay               151552  2',
+          'nf_tables             245760  4',
+          'ext4                  688128  1',
+          'crc32c_generic         16384  0'
+        ];
+        return { output: lines.join('\n'), exitCode: 0 };
+      }
+
+      case 'rmmod': {
+        const modName = args[0];
+        if (modName === 'rootkit_diamorphine') {
+          return {
+            output: `rmmod: módulo '${modName}' descarregado do kernel com sucesso. Ganchos de sys_call_table restaurados!`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_LINUX_LKM_ROOTKIT_NEUTRALIZED_2026}'
+            }
+          };
+        }
+        return { output: `rmmod: módulo '${modName}' descarregado`, exitCode: 0 };
+      }
+
+      case 'restore-files': {
+        return {
+          output: `[RESTORE AGENT] 14 arquivos criptografados foram recuperados com sucesso usando a chave mestra forense!`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_RANSOMWARE_RECOVERED_2026}'
+          }
+        };
+      }
+
+      case 'ipcs': {
+        return {
+          output: `------ Shared Memory Segments --------
+key        shmid      owner      perms      bytes      nattch     status      
+0x00000000 65536      aluno      600        4194304    2          dest`,
+          exitCode: 0
+        };
+      }
+
+      case 'bash':
+      case 'sh': {
+        const scriptTarget = args.find(a => !a.startsWith('-'));
+        if (scriptTarget) {
+          const resolved = this.resolvePath(scriptTarget);
+          const node = this.getNodeByPath(resolved);
+          if (node && node.type === 'file' && node.content) {
+            const scriptLines = node.content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+            let finalOutput = `[Bash Script Runner: ${scriptTarget}]\n`;
+            for (const line of scriptLines) {
+              const res = this.execute(line);
+              if (res.output) finalOutput += res.output + '\n';
+            }
+            return {
+              output: finalOutput.trim(),
+              exitCode: 0,
+              stateChanges: {
+                flagDiscovered: 'FLAG{WINLINX_LINUX_BASH_SCRIPT_EXECUTED_2026}'
+              }
+            };
+          }
+          return { output: `bash: ${scriptTarget}: Arquivo ou diretório não encontrado`, exitCode: 1 };
+        }
+        return { output: 'Bash shell session ativa.', exitCode: 0 };
+      }
+
       case 'kill': {
         const isForce = args.includes('-9');
         const pidStr = args.find(a => a !== '-9');

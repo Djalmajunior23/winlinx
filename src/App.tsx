@@ -17,6 +17,10 @@ import { ForensicLogsViewer } from './components/ForensicLogsViewer';
 import { FileSystemPermissionsExplorer } from './components/FileSystemPermissionsExplorer';
 import { SecurityAuditView } from './components/SecurityAuditView';
 import { CertificateModal } from './components/CertificateModal';
+import { IPCArchitectureView } from './components/IPCArchitectureView';
+import { KernelDriversView } from './components/KernelDriversView';
+import { ThreatInjectorView } from './components/ThreatInjectorView';
+import { CustomLabBuilderView } from './components/CustomLabBuilderView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
@@ -258,6 +262,22 @@ export function App() {
             logs={forensicLogs}
             onClearLogs={() => setForensicLogs([])}
           />
+        )}
+
+        {activeTab === 'ipc' && (
+          <IPCArchitectureView />
+        )}
+
+        {activeTab === 'drivers' && (
+          <KernelDriversView />
+        )}
+
+        {activeTab === 'threat-injector' && (
+          <ThreatInjectorView onExecuteRemediation={handleExecuteRemediation} />
+        )}
+
+        {activeTab === 'lab-builder' && (
+          <CustomLabBuilderView />
         )}
 
         {activeTab === 'labs' && (
