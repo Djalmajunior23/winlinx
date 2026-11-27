@@ -25,6 +25,10 @@ import { MalwareSandboxView } from './components/MalwareSandboxView';
 import { BinaryReverseEngineeringView } from './components/BinaryReverseEngineeringView';
 import { NetworkTopologyPivotView } from './components/NetworkTopologyPivotView';
 import { AdversaryEmulationView } from './components/AdversaryEmulationView';
+import { SOARPlaybookView } from './components/SOARPlaybookView';
+import { MemoryForensicsView } from './components/MemoryForensicsView';
+import { YaraSigmaStudioView } from './components/YaraSigmaStudioView';
+import { CloudContainerSecurityView } from './components/CloudContainerSecurityView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
@@ -290,6 +294,22 @@ export function App() {
 
         {activeTab === 'adversary' && (
           <AdversaryEmulationView />
+        )}
+
+        {activeTab === 'soar' && (
+          <SOARPlaybookView />
+        )}
+
+        {activeTab === 'mem-forensics' && (
+          <MemoryForensicsView />
+        )}
+
+        {activeTab === 'yara-sigma' && (
+          <YaraSigmaStudioView />
+        )}
+
+        {activeTab === 'cloud-k8s' && (
+          <CloudContainerSecurityView />
         )}
 
         {activeTab === 'threat-injector' && (

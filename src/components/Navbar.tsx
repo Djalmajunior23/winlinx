@@ -18,7 +18,10 @@ import {
   Crosshair,
   ShieldCheck,
   FolderTree,
-  Bug
+  Bug,
+  Bot,
+  Cloud,
+  HardDrive
 } from 'lucide-react';
 import { OperationalPosture } from '../types/simulator';
 
@@ -40,6 +43,10 @@ export type ActiveTab =
   | 'reversing'
   | 'network-pivot'
   | 'adversary'
+  | 'soar'
+  | 'mem-forensics'
+  | 'yara-sigma'
+  | 'cloud-k8s'
   | 'threat-injector'
   | 'lab-builder'
   | 'dual-lab' 
@@ -277,6 +284,102 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Crosshair className="w-3.5 h-3.5 text-rose-400" />
               <span>Campanhas APT</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('soar')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'soar'
+                  ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+              <span>SOAR Autônomo</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('mem-forensics')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'mem-forensics'
+                  ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Volatility RAM</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('yara-sigma')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'yara-sigma'
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FileSearch className="w-3.5 h-3.5 text-amber-400" />
+              <span>YARA & SIGMA</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cloud-k8s')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'cloud-k8s'
+                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <span>Cloud & K8s</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('soar')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'soar'
+                  ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+              <span>SOAR Autônomo</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('mem-forensics')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'mem-forensics'
+                  ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Volatility RAM</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('yara-sigma')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'yara-sigma'
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <FileSearch className="w-3.5 h-3.5 text-amber-400" />
+              <span>YARA & SIGMA</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cloud-k8s')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                activeTab === 'cloud-k8s'
+                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <span>Cloud & K8s</span>
             </button>
 
             <button

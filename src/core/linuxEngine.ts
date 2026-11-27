@@ -576,6 +576,65 @@ FLAG{WINLINX_LINUX_READELF_ELF_HEADER_AUDITED_2026}`,
         };
       }
 
+      case 'vol':
+      case 'volatility': {
+        const plugin = args.find(a => a.startsWith('linux.')) || 'linux.check_syscall';
+        return {
+          output: `Volatility 3 Framework 2.5.0
+Progress: 100.00% Paging system analysis complete
+
+Plugin: ${plugin}
+SyscallNumber  Name           ExpectedAddress     ActualAddress       Status
+0              sys_read       0xffffffff81240a20  0xffffffff81240a20  CLEAN
+78             sys_getdents64 0xffffffff81260110  0xffffffffc0850240  HOOKED [diamorphine.ko]
+62             sys_kill       0xffffffff81112450  0xffffffffc0850380  HOOKED [diamorphine.ko]
+
+[MEM_FORENSICS] Ganchos em sys_call_table detectados em memória física!
+FLAG{WINLINX_LINUX_VOLATILITY_SYSCALL_HOOK_DETECTED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_VOLATILITY_SYSCALL_HOOK_DETECTED_2026}'
+          }
+        };
+      }
+
+      case 'yara': {
+        return {
+          output: `yara 4.3.2 (Compiled rule scanner)
+Scanning VFS and Memory segments...
+[MATCH] Detect_CobaltStrike_Beacon_Injected /proc/1337/mem (Tags: T1055.012)
+[MATCH] Detect_CobaltStrike_Beacon_Injected /tmp/.hidden/kworker_rev (Tags: T1055.012)
+
+2 correspondências positivas de ameaça confirmadas pelo motor YARA!
+FLAG{WINLINX_LINUX_YARA_MEMORY_SCAN_MATCH_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_YARA_MEMORY_SCAN_MATCH_2026}'
+          }
+        };
+      }
+
+      case 'docker': {
+        if (args.includes('run') && (cmdLine.includes('docker.sock') || cmdLine.includes('chroot /host_fs') || cmdLine.includes('--privileged'))) {
+          return {
+            output: `[DOCKER ENGINE ALERT] Container iniciado com privilégios de host ou montagem de docker.sock!
+Spawning root shell em /host_fs...
+uid=0(root) gid=0(root) groups=0(root)
+Container escape efetuado com sucesso!
+FLAG{WINLINX_LINUX_DOCKER_CONTAINER_ESCAPE_2026}`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_LINUX_DOCKER_CONTAINER_ESCAPE_2026}'
+            }
+          };
+        }
+        return {
+          output: `CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS     NAMES
+a1b2c3d4e5f6   nginx:alpine   "/docker-entrypoint.…"   2 hours ago     Up 2 hours     80/tcp    web_prod`,
+          exitCode: 0
+        };
+      }
+
       case 'klist': {
         return {
           output: `Ticket cache: FILE:/tmp/krb5cc_1000

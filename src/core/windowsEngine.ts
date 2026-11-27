@@ -1111,6 +1111,82 @@ Recurso estrutural do Windows NT. Digite 'explain' sem parâmetros para ver tóp
         };
       }
 
+      case 'vol':
+      case 'volatility':
+      case 'vol.py': {
+        const plugin = args.find(a => a.startsWith('windows.')) || 'windows.malfind';
+        return {
+          output: `Volatility 3 Framework 2.8.0
+Windows Kernel PDB: ntkrnlmp.pdb (x64)
+Plugin: ${plugin}
+PID   Process         StartAddress        Protection               Tag
+2110  powershell.exe  0x0000018b2000      PAGE_EXECUTE_READWRITE   VAD commit [Shellcode Detected]
+4992  updater_svc.exe 0x0000024f0000      PAGE_EXECUTE_READWRITE   Injected DLL [MZ Header]
+
+[MEM_FORENSICS] Injeção de código em espaço de memória de processo detectada!
+FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}'
+          }
+        };
+      }
+
+      case 'yara':
+      case 'yara64': {
+        return {
+          output: `YARA 4.3.2 Win64
+Varrendo processos ativos e diretórios de sistema...
+[MATCH] Detect_CobaltStrike_Beacon_Injected PID 2110 (powershell.exe) @ 0x0000018b2000
+[MATCH] Detect_Unquoted_Service_Binary C:\\Program Files\\Custom App\\service.exe
+
+Assinatura YARA encontrou artefatos maliciosos em memória e disco!
+FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}'
+          }
+        };
+      }
+
+      case 'vol':
+      case 'volatility': {
+        const plugin = args.find(a => a.startsWith('windows.')) || 'windows.malfind';
+        return {
+          output: `Volatility 3 Framework 2.5.0
+Progress: 100.00% Windows memory analysis complete
+
+Plugin: ${plugin}
+PID   Process         StartAddress        Protection               Tag
+2110  powershell.exe  0x0000018b2000      PAGE_EXECUTE_READWRITE   VAD commit [Shellcode Detected]
+4992  updater_svc.exe 0x0000024f0000      PAGE_EXECUTE_READWRITE   Injected DLL [MZ Header]
+
+[MEM_FORENSICS] Injeção de código em espaço de memória de processo detectada!
+FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}'
+          }
+        };
+      }
+
+      case 'yara':
+      case 'yara64': {
+        return {
+          output: `YARA 4.3.2 Win64
+Varrendo processos ativos e diretórios de sistema...
+[MATCH] Detect_CobaltStrike_Beacon_Injected PID 2110 (powershell.exe) @ 0x0000018b2000
+[MATCH] Detect_Unquoted_Service_Binary C:\\Program Files\\Custom App\\service.exe
+
+Assinatura YARA encontrou artefatos maliciosos em memória e disco!
+FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}'
+          }
+        };
+      }
+
       case 'klist': {
         return {
           output: `Current LogonId is 0:0x3e7

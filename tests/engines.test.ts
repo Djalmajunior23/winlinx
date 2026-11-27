@@ -292,3 +292,38 @@ test('WinLinx Ultimate Range: Engenharia Reversa (readelf / dumpbin) & Kerberos 
   assert.ok(winKlistRes.output.includes('krbtgt/CORP.LOCAL'));
   assert.ok(winKlistRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_KERBEROS_KLIST_AUDITED_2026}'));
 });
+
+test('WinLinx Fase 4: Forense de Memória (Volatility), YARA Hunting e Cloud/Docker Breakout', () => {
+  const linuxEngine = new LinuxSimulatorEngine(createInitialLinuxFS());
+  const windowsEngine = new WindowsSimulatorEngine(createInitialWindowsFS());
+
+  // Linux Volatility (Ganchos de syscalls)
+  const linVolRes = linuxEngine.execute('volatility -f memory.raw linux.check_syscall');
+  assert.strictEqual(linVolRes.exitCode, 0);
+  assert.ok(linVolRes.output.includes('HOOKED [diamorphine.ko]'));
+  assert.ok(linVolRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_VOLATILITY_SYSCALL_HOOK_DETECTED_2026}'));
+
+  // Linux YARA
+  const linYaraRes = linuxEngine.execute('yara rules.yar /proc/1337/mem');
+  assert.strictEqual(linYaraRes.exitCode, 0);
+  assert.ok(linYaraRes.output.includes('Detect_CobaltStrike_Beacon_Injected'));
+  assert.ok(linYaraRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_YARA_MEMORY_SCAN_MATCH_2026}'));
+
+  // Linux Docker Escape
+  const linDockerRes = linuxEngine.execute('docker run -it -v /:/host_fs ubuntu chroot /host_fs');
+  assert.strictEqual(linDockerRes.exitCode, 0);
+  assert.ok(linDockerRes.output.includes('Container escape efetuado com sucesso'));
+  assert.ok(linDockerRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_DOCKER_CONTAINER_ESCAPE_2026}'));
+
+  // Windows Volatility (malfind)
+  const winVolRes = windowsEngine.execute('vol -f memory.raw windows.malfind');
+  assert.strictEqual(winVolRes.exitCode, 0);
+  assert.ok(winVolRes.output.includes('PAGE_EXECUTE_READWRITE'));
+  assert.ok(winVolRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}'));
+
+  // Windows YARA
+  const winYaraRes = windowsEngine.execute('yara64 rule.yar C:\\Windows\\System32');
+  assert.strictEqual(winYaraRes.exitCode, 0);
+  assert.ok(winYaraRes.output.includes('Detect_CobaltStrike_Beacon_Injected'));
+  assert.ok(winYaraRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}'));
+});

@@ -142,6 +142,31 @@
 - **Defesa Ativa:**
   - Interface interativa para analistas SOC aplicarem contramedidas específicas em cada tática da Kill Chain (`FLAG{WINLINX_APT_ADVERSARY_EMULATION_NEUTRALIZED_2026}`).
 
+### 18. Assistente Autônomo de Resposta SOAR (Security Orchestration, Automation & Response)
+- **Playbooks Automatizados com Controles Human-in-the-Loop:**
+  - Contenção imediata de Ransomware via isolamento de rede WFP (`netsh advfirewall set allprofiles firewallpolicy blockinbound,blockoutbound`).
+  - Solicitação de aprovação de analista sênior para encerramento forçado de processos críticos com tokens SYSTEM.
+  - Orquestração de snapshots forenses e restauração automatizada de arquivos (`restore-files`) (`FLAG{WINLINX_SOAR_PLAYBOOK_AUTOMATION_EXECUTED_2026}`).
+
+### 19. Motor de Análise Forense de Memória RAM (Volatility Lite Simulator)
+- **Inspeção de Despejos de Memória Física (`memory.raw`):**
+  - **`windows.malfind`:** Detecção de páginas de memória alocadas com permissão `PAGE_EXECUTE_READWRITE` (violação do princípio W^X) contendo shellcodes de Cobalt Strike ou cabeçalhos PE injetados.
+  - **`windows.psscan`:** Localização de processos desvinculados da lista duplamente encadeada `_EPROCESS` por rootkits via manipulação de ponteiros DKOM.
+  - **`linux.check_syscall`:** Comparação de `sys_call_table` contra o `System.map` identificando ganchos de rootkits LKM (`diamorphine.ko`) em `sys_getdents64` e `sys_kill` (`FLAG{WINLINX_MEMORY_VOLATILITY_ANALYZED_2026}`).
+
+### 20. Threat Hunting Studio: Criação de Regras YARA & SIGMA
+- **YARA Studio:**
+  - Editor interativo para assinaturas de detecção de malwares com blocos `meta`, `strings` (hexadecimal, ascii, wide) e `condition`.
+  - Scanner de regras integrado que varre o VFS e segmentos de memória com flags de confirmação (`FLAG{WINLINX_YARA_SIGMA_RULE_HUNTER_2026}`).
+- **SIGMA Rule Converter:**
+  - Criação de regras de detecção agnósticas (YAML) convertidas automaticamente para queries Splunk e Elastic Lucene.
+
+### 21. Segurança em Nuvem & Contêineres (Cloud & Kubernetes Workload Defense)
+- **Simulação de Fuga de Contêiner (Container Breakout - MITRE T1611):**
+  - Fuga via montagem indevida do Docker Socket (`/var/run/docker.sock`) obtendo shell root no host.
+  - Abuso de contêineres com `--privileged` ou `CAP_SYS_ADMIN` montando cgroups do host.
+  - Exploração SSRF contra APIs de metadados de instâncias em nuvem (IMDSv1 `169.254.169.254`) extraindo credenciais de Role IAM temporárias (`FLAG{WINLINX_CLOUD_CONTAINER_SECURITY_BREACHED_2026}`).
+
 ---
 
 ## 💻 Comandos e Testes Automatizados
@@ -151,20 +176,21 @@
 npm test
 ```
 ```text
-✔ Linux Simulator: Navegação, VFS e I/O Redirection (52.7ms)
-✔ Linux Simulator: Detecção de Processos & Kill com Syscall (4.0ms)
-✔ Linux Simulator: Firewall Netfilter & UFW Rule (2.1ms)
-✔ Windows Simulator: DACL, Processos e EDR Alerts (3.2ms)
-✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (0.7ms)
-✔ Windows Simulator: Firewall netsh advfirewall Rule (1.1ms)
-✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (0.8ms)
-✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (0.4ms)
-✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (0.4ms)
-✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (0.4ms)
-✔ Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner (1.2ms)
-✔ Windows Simulator: Named Pipes (\\.\pipe\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner (2.6ms)
-✔ WinLinx Ultimate Range: Engenharia Reversa (readelf / dumpbin) & Kerberos AD (klist) (4.5ms)
-ℹ tests 13, pass 13, fail 0
+✔ Linux Simulator: Navegação, VFS e I/O Redirection (191.1ms)
+✔ Linux Simulator: Detecção de Processos & Kill com Syscall (2.3ms)
+✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.7ms)
+✔ Windows Simulator: DACL, Processos e EDR Alerts (10.6ms)
+✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (1.9ms)
+✔ Windows Simulator: Firewall netsh advfirewall Rule (0.7ms)
+✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (2.1ms)
+✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (2.3ms)
+✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (0.8ms)
+✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (0.7ms)
+✔ Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner (2.8ms)
+✔ Windows Simulator: Named Pipes (\\.\pipe\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner (7.9ms)
+✔ WinLinx Ultimate Range: Engenharia Reversa (readelf / dumpbin) & Kerberos AD (klist) (1.0ms)
+✔ WinLinx Fase 4: Forense de Memória (Volatility), YARA Hunting e Cloud/Docker Breakout (1.1ms)
+ℹ tests 14, pass 14, fail 0
 ```
 ```
 
