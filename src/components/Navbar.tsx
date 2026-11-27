@@ -51,7 +51,9 @@ export type ActiveTab =
   | 'ebpf-tracer'
   | 'etw-ti'
   | 'container-runtime'
-  | 'deception';
+  | 'deception'
+  | 'hypervisor-vbs'
+  | 'zero-trust-kernel';
 
 interface NavbarProps {
   activeTab: ActiveTab;

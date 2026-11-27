@@ -1365,6 +1365,29 @@ Digite um comando ou execute um script: powershell -File <script.ps1>`,
         };
       }
 
+      case 'Get-CimInstance':
+      case 'get-ciminstance': {
+        const query = args.join(' ').toLowerCase();
+        if (query.includes('deviceguard') || query.includes('virtualizationbasedsecurity') || query.includes('vbs')) {
+          return {
+            output: `VirtualizationBasedSecurityStatus : 2 (Running)
+SecurityServicesConfigured        : {1, 2} (Credential Guard, HVCI)
+SecurityServicesRunning           : {1, 2} (Credential Guard, HVCI)
+RequiredSecurityProperties        : {1, 2} (Hypervisor, Secure Boot)
+AvailableSecurityProperties       : {1, 2, 3} (Hypervisor, Secure Boot, DMA Protection)
+FLAG{WINLINX_HYPERVISOR_VBS_CREDENTIAL_GUARD_SECURED_2026}`,
+            exitCode: 0,
+            stateChanges: {
+              flagDiscovered: 'FLAG{WINLINX_HYPERVISOR_VBS_CREDENTIAL_GUARD_SECURED_2026}'
+            }
+          };
+        }
+        return {
+          output: `Get-CimInstance : Objeto consultado com sucesso. Use Win32_DeviceGuard para auditoria VBS.`,
+          exitCode: 0
+        };
+      }
+
       case 'logman': {
         return {
           output: `=== [Event Tracing for Windows - ETW-Ti Controller] ===

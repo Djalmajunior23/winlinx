@@ -1366,6 +1366,23 @@ RELEVÂNCIA EM CIBERSEGURANÇA
         return { output: `Capabilities aplicadas: ${args.join(' ')}`, exitCode: 0 };
       }
 
+      case 'ima-audit':
+      case 'evmctl': {
+        return {
+          output: `=== [Linux IMA / EVM Zero Trust Subsystem] ===
+[+] /sys/kernel/security/ima/policy: appraise func=BPRM_CHECK appraise_type=imasig
+[+] /sys/kernel/security/ima/ascii_runtime_measurements:
+10 0a4f5d1e2... ima-ng sha256:7f83b165... /usr/bin/sudo [VERIFIED]
+10 1b8f3c4d9... ima-ng sha256:4a8b71d9... /sbin/init [VERIFIED]
+[+] dm-verity Merkle Tree: Root hash authentic (Zero Drift detected)
+FLAG{WINLINX_LINUX_IMA_DMVERITY_INTEGRITY_VERIFIED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_IMA_DMVERITY_INTEGRITY_VERIFIED_2026}'
+          }
+        };
+      }
+
       case 'bpftool': {
         const sub = args[0] || 'prog';
         return {

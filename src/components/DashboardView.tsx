@@ -311,6 +311,24 @@ const CAPABILITIES_CATALOG: CapabilityCard[] = [
     badge: 'HONEYTOKENS & DECEPTION',
     icon: Crosshair,
     accentColor: 'from-amber-500/20 to-amber-950/40 text-amber-400 border-amber-500/30'
+  },
+  {
+    id: 'hypervisor-vbs',
+    title: 'Hypervisor VBS & Credential Guard (NT)',
+    category: 'Arquitetura de SO',
+    description: 'Virtual Trust Levels (VTL 0 vs VTL 1), HVCI e mitigação de Mimikatz por isolamento de hardware.',
+    badge: 'HYPER-V VBS / VTL 1',
+    icon: Cpu,
+    accentColor: 'from-blue-500/20 to-blue-950/40 text-blue-400 border-blue-500/30'
+  },
+  {
+    id: 'zero-trust-kernel',
+    title: 'Linux IMA & Zero Trust Kernel Architecture',
+    category: 'Arquitetura de SO',
+    description: 'Integrity Measurement Architecture (IMA), dm-verity e atestação TPM 2.0 antes da execução de binários.',
+    badge: 'LINUX IMA / ZERO TRUST',
+    icon: ShieldCheck,
+    accentColor: 'from-emerald-500/20 to-emerald-950/40 text-emerald-400 border-emerald-500/30'
   }
 ];
 

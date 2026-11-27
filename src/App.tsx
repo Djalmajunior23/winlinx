@@ -37,6 +37,8 @@ import { EBPFKernelTracerView } from './components/eBPFKernelTracerView';
 import { ETWThreatIntelView } from './components/ETWThreatIntelView';
 import { ContainerRuntimeSecurityView } from './components/ContainerRuntimeSecurityView';
 import { HoneypotDeceptionView } from './components/HoneypotDeceptionView';
+import { HypervisorVBSView } from './components/HypervisorVBSView';
+import { ZeroTrustKernelGuardView } from './components/ZeroTrustKernelGuardView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
@@ -359,6 +361,20 @@ export function App() {
 
         {activeTab === 'deception' && (
           <HoneypotDeceptionView
+            onCaptureFlag={handleCaptureFlag}
+            onRecordForensicLogs={handleRecordForensicLogs}
+          />
+        )}
+
+        {activeTab === 'hypervisor-vbs' && (
+          <HypervisorVBSView
+            onCaptureFlag={handleCaptureFlag}
+            onRecordForensicLogs={handleRecordForensicLogs}
+          />
+        )}
+
+        {activeTab === 'zero-trust-kernel' && (
+          <ZeroTrustKernelGuardView
             onCaptureFlag={handleCaptureFlag}
             onRecordForensicLogs={handleRecordForensicLogs}
           />
