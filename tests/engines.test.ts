@@ -327,3 +327,38 @@ test('WinLinx Fase 4: Forense de Memória (Volatility), YARA Hunting e Cloud/Doc
   assert.ok(winYaraRes.output.includes('Detect_CobaltStrike_Beacon_Injected'));
   assert.ok(winYaraRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}'));
 });
+
+test('WinLinx Fase 5: Quebra de Credenciais (Hashcat), Firmware Forensics (Binwalk) e SCADA OT (Modbus)', () => {
+  const linuxEngine = new LinuxSimulatorEngine(createInitialLinuxFS());
+  const windowsEngine = new WindowsSimulatorEngine(createInitialWindowsFS());
+
+  // Linux Hashcat
+  const linHashRes = linuxEngine.execute('hashcat -m 1800 shadow.txt rockyou.txt');
+  assert.strictEqual(linHashRes.exitCode, 0);
+  assert.ok(linHashRes.output.includes('Aluno@2026!'));
+  assert.ok(linHashRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_HASHCAT_SHADOW_CRACKED_2026}'));
+
+  // Linux Binwalk
+  const binwalkRes = linuxEngine.execute('binwalk -e firmware.bin');
+  assert.strictEqual(binwalkRes.exitCode, 0);
+  assert.ok(binwalkRes.output.includes('Squashfs filesystem'));
+  assert.ok(binwalkRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_BINWALK_FIRMWARE_EXTRACTED_2026}'));
+
+  // Linux Modbus
+  const modbusRes = linuxEngine.execute('modbuscli -t 192.168.10.50 -f 5 -a 1');
+  assert.strictEqual(modbusRes.exitCode, 0);
+  assert.ok(modbusRes.output.includes('Injeção industrial concluída'));
+  assert.ok(modbusRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_MODBUS_SCADA_INJECTED_2026}'));
+
+  // Windows Hashcat
+  const winHashRes = windowsEngine.execute('hashcat64 -m 1000 ntlm.hash rockyou.txt');
+  assert.strictEqual(winHashRes.exitCode, 0);
+  assert.ok(winHashRes.output.includes('Password123'));
+  assert.ok(winHashRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_HASHCAT_NTLM_CRACKED_2026}'));
+
+  // Windows Modbus
+  const winModbusRes = windowsEngine.execute('modbus -h 192.168.10.50 -c 1');
+  assert.strictEqual(winModbusRes.exitCode, 0);
+  assert.ok(winModbusRes.output.includes('Coil override complete'));
+  assert.ok(winModbusRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_MODBUS_OVERRIDE_2026}'));
+});

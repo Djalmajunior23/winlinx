@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-  Shield, 
-  Terminal, 
-  BookOpen, 
-  ArrowLeftRight, 
-  Award, 
-  Flame, 
-  CheckCircle2, 
+import {
+  Shield,
+  Terminal,
+  BookOpen,
+  ArrowLeftRight,
+  Award,
+  Flame,
+  CheckCircle2,
   FolderGit2,
   Cpu,
   ShieldAlert,
@@ -21,13 +21,15 @@ import {
   Bug,
   Bot,
   Cloud,
-  HardDrive
+  HardDrive,
+  Globe,
+  Radio
 } from 'lucide-react';
 import { OperationalPosture } from '../types/simulator';
 
-export type ActiveTab = 
-  | 'dashboard' 
-  | 'modules' 
+export type ActiveTab =
+  | 'dashboard'
+  | 'modules'
   | 'processes'
   | 'anatomy'
   | 'kernel'
@@ -47,13 +49,17 @@ export type ActiveTab =
   | 'mem-forensics'
   | 'yara-sigma'
   | 'cloud-k8s'
+  | 'edr-evasion'
+  | 'hashcat'
+  | 'threat-intel'
+  | 'ics-ot'
   | 'threat-injector'
   | 'lab-builder'
-  | 'dual-lab' 
-  | 'comparator' 
-  | 'labs' 
-  | 'certificate' 
-  | 'syscalls' 
+  | 'dual-lab'
+  | 'comparator'
+  | 'labs'
+  | 'certificate'
+  | 'syscalls'
   | 'edr';
 
 interface NavbarProps {
@@ -109,22 +115,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           <nav className="hidden xl:flex items-center space-x-1">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'dashboard'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <span>Visão Geral</span>
             </button>
 
             <button
               onClick={() => setActiveTab('kernel')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'kernel'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'kernel'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Layers className="w-3.5 h-3.5 text-purple-400" />
               <span>Kernel</span>
@@ -132,11 +136,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('processes')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'processes'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'processes'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Activity className="w-3.5 h-3.5 text-emerald-400" />
               <span>Processos</span>
@@ -144,11 +147,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('memory')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'memory'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'memory'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Cpu className="w-3.5 h-3.5 text-cyan-400" />
               <span>Memória</span>
@@ -156,11 +158,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('filesystem')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'filesystem'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'filesystem'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <FolderTree className="w-3.5 h-3.5 text-amber-400" />
               <span>Sistemas de Arquivos</span>
@@ -168,11 +169,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('security-audit')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'security-audit'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'security-audit'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Bug className="w-3.5 h-3.5 text-rose-400" />
               <span>Auditoria de Vulns</span>
@@ -180,11 +180,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('registry')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'registry'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'registry'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Lock className="w-3.5 h-3.5 text-blue-400" />
               <span>Registro</span>
@@ -192,11 +191,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('firewall')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'firewall'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'firewall'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Network className="w-3.5 h-3.5 text-teal-400" />
               <span>Firewall</span>
@@ -204,11 +202,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('forensics')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'forensics'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'forensics'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <FileSearch className="w-3.5 h-3.5 text-amber-400" />
               <span>Logs & SIEM</span>
@@ -216,11 +213,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('ipc')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'ipc'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'ipc'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Network className="w-3.5 h-3.5 text-indigo-400" />
               <span>IPC Pipes</span>
@@ -228,11 +224,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('drivers')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'drivers'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'drivers'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Cpu className="w-3.5 h-3.5 text-cyan-400" />
               <span>Drivers/BYOVD</span>
@@ -240,11 +235,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('sandbox')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'sandbox'
-                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'sandbox'
+                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <ShieldAlert className="w-3.5 h-3.5 text-purple-400" />
               <span>Sandbox</span>
@@ -252,11 +246,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('reversing')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'reversing'
-                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'reversing'
+                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <FileSearch className="w-3.5 h-3.5 text-blue-400" />
               <span>Reversa (PE/ELF)</span>
@@ -264,11 +257,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('network-pivot')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'network-pivot'
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'network-pivot'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Network className="w-3.5 h-3.5 text-emerald-400" />
               <span>AD & Pivot</span>
@@ -276,11 +268,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('adversary')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'adversary'
-                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'adversary'
+                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Crosshair className="w-3.5 h-3.5 text-rose-400" />
               <span>Campanhas APT</span>
@@ -288,11 +279,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('soar')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'soar'
-                  ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'soar'
+                ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
               <span>SOAR Autônomo</span>
@@ -300,11 +290,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('mem-forensics')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'mem-forensics'
-                  ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'mem-forensics'
+                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Activity className="w-3.5 h-3.5 text-indigo-400" />
               <span>Volatility RAM</span>
@@ -312,11 +301,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('yara-sigma')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'yara-sigma'
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'yara-sigma'
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <FileSearch className="w-3.5 h-3.5 text-amber-400" />
               <span>YARA & SIGMA</span>
@@ -324,23 +312,65 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('cloud-k8s')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'cloud-k8s'
-                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'cloud-k8s'
+                ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Layers className="w-3.5 h-3.5 text-sky-400" />
               <span>Cloud & K8s</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('edr-evasion')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'edr-evasion'
+                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+              <span>EDR Evasion</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('hashcat')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'hashcat'
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Hashcat</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('threat-intel')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'threat-intel'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <Globe className="w-3.5 h-3.5 text-cyan-400" />
+              <span>MISP CTI</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ics-ot')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'ics-ot'
+                ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <Radio className="w-3.5 h-3.5 text-orange-400" />
+              <span>SCADA OT</span>
             </button>
 
             <button
               onClick={() => setActiveTab('soar')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'soar'
-                  ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'soar'
+                ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
               <span>SOAR Autônomo</span>
@@ -348,11 +378,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('mem-forensics')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'mem-forensics'
-                  ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'mem-forensics'
+                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Activity className="w-3.5 h-3.5 text-indigo-400" />
               <span>Volatility RAM</span>
@@ -360,11 +389,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('yara-sigma')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'yara-sigma'
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'yara-sigma'
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <FileSearch className="w-3.5 h-3.5 text-amber-400" />
               <span>YARA & SIGMA</span>
@@ -372,23 +400,65 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('cloud-k8s')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'cloud-k8s'
-                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'cloud-k8s'
+                ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Layers className="w-3.5 h-3.5 text-sky-400" />
               <span>Cloud & K8s</span>
             </button>
 
             <button
+              onClick={() => setActiveTab('edr-evasion')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'edr-evasion'
+                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+              <span>EDR Evasion</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('hashcat')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'hashcat'
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Hashcat</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('threat-intel')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'threat-intel'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <Globe className="w-3.5 h-3.5 text-cyan-400" />
+              <span>MISP CTI</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ics-ot')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'ics-ot'
+                ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+            >
+              <Radio className="w-3.5 h-3.5 text-orange-400" />
+              <span>SCADA OT</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('threat-injector')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'threat-injector'
-                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'threat-injector'
+                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Flame className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
               <span>Threat Injector</span>
@@ -396,11 +466,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('lab-builder')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'lab-builder'
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'lab-builder'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <FolderGit2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Lab Builder</span>
@@ -408,11 +477,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('labs')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'labs'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'labs'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Terminal className="w-3.5 h-3.5" />
               <span>Labs</span>
@@ -420,11 +488,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('dual-lab')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'dual-lab'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'dual-lab'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <FolderGit2 className="w-3.5 h-3.5" />
               <span>Dual-Shell</span>
@@ -432,11 +499,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('comparator')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'comparator'
-                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'comparator'
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <ArrowLeftRight className="w-3.5 h-3.5" />
               <span>Comparador</span>
@@ -444,11 +510,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setActiveTab('edr')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                activeTab === 'edr'
-                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${activeTab === 'edr'
+                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
               <span>EDR SOC</span>
@@ -464,11 +529,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {onTogglePosture && (
               <button
                 onClick={onTogglePosture}
-                className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
-                  posture === 'blue-team'
-                    ? 'bg-cyan-950/60 border-cyan-700/80 text-cyan-300 shadow-sm'
-                    : 'bg-rose-950/60 border-rose-700/80 text-rose-300 shadow-sm'
-                }`}
+                className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${posture === 'blue-team'
+                  ? 'bg-cyan-950/60 border-cyan-700/80 text-cyan-300 shadow-sm'
+                  : 'bg-rose-950/60 border-rose-700/80 text-rose-300 shadow-sm'
+                  }`}
                 title="Alternar Postura Operacional (Ataque vs Defesa)"
               >
                 {posture === 'blue-team' ? (

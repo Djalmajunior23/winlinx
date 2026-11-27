@@ -598,6 +598,59 @@ FLAG{WINLINX_LINUX_VOLATILITY_SYSCALL_HOOK_DETECTED_2026}`,
         };
       }
 
+      case 'hashcat': {
+        return {
+          output: `hashcat (v6.2.6) starting...
+OpenCL API (OpenCL 3.0 CUDA 12.2.140)
+Session..........: hashcat
+Status...........: Cracked
+Hash.Mode........: 1800 (sha512crypt $6$, SHA512 (Unix))
+Hash.Target......: $6$salt123$qR8e1W9tZ3x0...
+Time.Started.....: Thu Nov 26 21:00:10 2026 (1 sec)
+Candidates.#1....: Aluno@2026!
+Recovered........: 1/1 (100.00%) Digests
+
+Senha recuperada com sucesso!
+FLAG{WINLINX_LINUX_HASHCAT_SHADOW_CRACKED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_HASHCAT_SHADOW_CRACKED_2026}'
+          }
+        };
+      }
+
+      case 'binwalk': {
+        return {
+          output: `DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             TRX firmware header, little endian, image size: 7340032 bytes
+28            0x1C            gzip compressed data, from Unix, last modified: 2026-11-20
+1429504       0x15D000        Squashfs filesystem, little endian, version 4.0, size: 5908224 bytes
+
+[FIRMWARE FORENSICS] Sistema de arquivos SquashFS extraído! Backdoor hardcoded em /etc/shadow detectado.
+FLAG{WINLINX_LINUX_BINWALK_FIRMWARE_EXTRACTED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_BINWALK_FIRMWARE_EXTRACTED_2026}'
+          }
+        };
+      }
+
+      case 'modbuscli':
+      case 'modbus': {
+        return {
+          output: `Connecting to Modbus TCP Gateway 192.168.10.50:502...
+[TX] Transaction ID: 1 | Protocol: 0 | Length: 6 | Unit ID: 1 | Function: 05 (Write Single Coil)
+[RX] Coil Address 0x0001 -> Value: 0x0000 [FORCE OFF]
+Injeção industrial concluída. Pressão do reator subindo!
+FLAG{WINLINX_LINUX_MODBUS_SCADA_INJECTED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_MODBUS_SCADA_INJECTED_2026}'
+          }
+        };
+      }
+
       case 'yara': {
         return {
           output: `yara 4.3.2 (Compiled rule scanner)

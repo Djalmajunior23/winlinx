@@ -29,6 +29,10 @@ import { SOARPlaybookView } from './components/SOARPlaybookView';
 import { MemoryForensicsView } from './components/MemoryForensicsView';
 import { YaraSigmaStudioView } from './components/YaraSigmaStudioView';
 import { CloudContainerSecurityView } from './components/CloudContainerSecurityView';
+import { EDREvasionSyscallsView } from './components/EDREvasionSyscallsView';
+import { CredentialCrackingView } from './components/CredentialCrackingView';
+import { ThreatIntelMISPView } from './components/ThreatIntelMISPView';
+import { ICSOTSecurityView } from './components/ICSOTSecurityView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
@@ -310,6 +314,22 @@ export function App() {
 
         {activeTab === 'cloud-k8s' && (
           <CloudContainerSecurityView />
+        )}
+
+        {activeTab === 'edr-evasion' && (
+          <EDREvasionSyscallsView />
+        )}
+
+        {activeTab === 'hashcat' && (
+          <CredentialCrackingView />
+        )}
+
+        {activeTab === 'threat-intel' && (
+          <ThreatIntelMISPView />
+        )}
+
+        {activeTab === 'ics-ot' && (
+          <ICSOTSecurityView />
         )}
 
         {activeTab === 'threat-injector' && (

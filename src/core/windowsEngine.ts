@@ -1132,40 +1132,37 @@ FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}`,
         };
       }
 
-      case 'yara':
-      case 'yara64': {
+      case 'hashcat':
+      case 'hashcat64': {
         return {
-          output: `YARA 4.3.2 Win64
-Varrendo processos ativos e diretórios de sistema...
-[MATCH] Detect_CobaltStrike_Beacon_Injected PID 2110 (powershell.exe) @ 0x0000018b2000
-[MATCH] Detect_Unquoted_Service_Binary C:\\Program Files\\Custom App\\service.exe
+          output: `hashcat (v6.2.6) Windows x64
+Session..........: hashcat
+Status...........: Cracked
+Hash.Mode........: 1000 (NTLM)
+Hash.Target......: 31d6cfe0d16ae931b73c59d7e0c089c0
+Speed.#1.........: 42800.2 MH/s
+Candidates.#1....: Password123
 
-Assinatura YARA encontrou artefatos maliciosos em memória e disco!
-FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}`,
+Hash NTLM quebrado com sucesso!
+FLAG{WINLINX_WINDOWS_HASHCAT_NTLM_CRACKED_2026}`,
           exitCode: 0,
           stateChanges: {
-            flagDiscovered: 'FLAG{WINLINX_WINDOWS_YARA_SCAN_MATCHED_2026}'
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_HASHCAT_NTLM_CRACKED_2026}'
           }
         };
       }
 
-      case 'vol':
-      case 'volatility': {
-        const plugin = args.find(a => a.startsWith('windows.')) || 'windows.malfind';
+      case 'modbus':
+      case 'modbuscli': {
         return {
-          output: `Volatility 3 Framework 2.5.0
-Progress: 100.00% Windows memory analysis complete
-
-Plugin: ${plugin}
-PID   Process         StartAddress        Protection               Tag
-2110  powershell.exe  0x0000018b2000      PAGE_EXECUTE_READWRITE   VAD commit [Shellcode Detected]
-4992  updater_svc.exe 0x0000024f0000      PAGE_EXECUTE_READWRITE   Injected DLL [MZ Header]
-
-[MEM_FORENSICS] Injeção de código em espaço de memória de processo detectada!
-FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}`,
+          output: `Modbus Master CLI Windows x64
+Connected to 192.168.10.50:502
+Sending Function 05 (Write Single Coil) to Address 0x0001
+Coil override complete!
+FLAG{WINLINX_WINDOWS_MODBUS_OVERRIDE_2026}`,
           exitCode: 0,
           stateChanges: {
-            flagDiscovered: 'FLAG{WINLINX_WINDOWS_VOLATILITY_MALFIND_DETECTED_2026}'
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_MODBUS_OVERRIDE_2026}'
           }
         };
       }

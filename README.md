@@ -167,6 +167,29 @@
   - Abuso de contêineres com `--privileged` ou `CAP_SYS_ADMIN` montando cgroups do host.
   - Exploração SSRF contra APIs de metadados de instâncias em nuvem (IMDSv1 `169.254.169.254`) extraindo credenciais de Role IAM temporárias (`FLAG{WINLINX_CLOUD_CONTAINER_SECURITY_BREACHED_2026}`).
 
+### 22. Evasão de EDR: Syscalls Diretas & Unhooking (Hell's Gate / Halos Gate)
+- **Mapeamento de Ganchos de User-Mode:**
+  - Inspeção de memória dos stubs de `ntdll.dll` (`NtAllocateVirtualMemory`, `NtProtectVirtualMemory`, `NtCreateThreadEx`), identificando desvios `JMP` injetados por sensores de antivírus/EDR.
+- **Técnicas de Evasão Avançadas:**
+  - **Hell's Gate / Halos Gate:** Resolução dinâmica do System Service Number (SSN) e execução direta da instrução `syscall` em assembly inline.
+  - **Unhooking (Perun's Fart):** Leitura de `ntdll.dll` original do disco e substituição a quente da seção `.text` em memória virtual (`FLAG{WINLINX_EDR_DIRECT_SYSCALL_HELLS_GATE_2026}`).
+
+### 23. Criptoanálise & Quebra Acelerada de Hashes (Hashcat Lite)
+- **Formatos de Hashes de Autenticação:**
+  - Quebra acelerada via OpenCL/GPU de senhas Linux `/etc/shadow` (SHA-512 `$6$`), Windows NTLM (`MD4`) e Kerberos TGS (Kerberoasting).
+  - Telemetria de taxa de hashes por segundo (GH/s) e regras de mutação com wordlists (`FLAG{WINLINX_HASHCAT_CREDENTIAL_CRACKED_2026}`).
+
+### 24. Inteligência de Ameaças (CTI / MISP TAXII Feed)
+- **Correlacionamento de Indicadores de Comprometimento (IOCs):**
+  - Feed de IPs de C2, hashes de malwares conhecidos (WannaCry, Mirai) e domínios DGA com níveis de confiança (95%).
+  - Exportação e compartilhamento de relatórios no padrão internacional **STIX 2.1 / TAXII** (`FLAG{WINLINX_CTI_MISP_STIX_CORRELATED_2026}`).
+
+### 25. Sistemas Industriais & OT (SCADA / Modbus TCP & Firmware Analysis)
+- **Exploração de Redes Operacionais (ICS/OT):**
+  - Simulação de PLC industrial (Siemens S7-1200) e protocolo Modbus TCP na porta 502.
+  - Injeção de pacotes `Force Single Coil` (Função 05) causando sobrepressão de 14.8 Bar em turbinas industriais (estilo *Stuxnet*).
+  - Extração forense de firmware IoT com simulador de `binwalk` extraindo sistemas de arquivos SquashFS (`FLAG{WINLINX_ICS_SCADA_MODBUS_EXPLOITED_2026}`).
+
 ---
 
 ## 💻 Comandos e Testes Automatizados
@@ -176,21 +199,22 @@
 npm test
 ```
 ```text
-✔ Linux Simulator: Navegação, VFS e I/O Redirection (191.1ms)
-✔ Linux Simulator: Detecção de Processos & Kill com Syscall (2.3ms)
-✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.7ms)
-✔ Windows Simulator: DACL, Processos e EDR Alerts (10.6ms)
-✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (1.9ms)
-✔ Windows Simulator: Firewall netsh advfirewall Rule (0.7ms)
-✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (2.1ms)
-✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (2.3ms)
-✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (0.8ms)
-✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (0.7ms)
-✔ Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner (2.8ms)
-✔ Windows Simulator: Named Pipes (\\.\pipe\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner (7.9ms)
+✔ Linux Simulator: Navegação, VFS e I/O Redirection (76.4ms)
+✔ Linux Simulator: Detecção de Processos & Kill com Syscall (1.4ms)
+✔ Linux Simulator: Firewall Netfilter & UFW Rule (0.8ms)
+✔ Windows Simulator: DACL, Processos e EDR Alerts (4.4ms)
+✔ Windows Simulator: Registro reg.exe e Hardening RunAsPPL (3.1ms)
+✔ Windows Simulator: Firewall netsh advfirewall Rule (1.7ms)
+✔ Linux Simulator: Kernel Copilot (explain, hint), Capabilities e Logs Forenses auditd (1.5ms)
+✔ Windows Simulator: Kernel Copilot (explain, hint) e Logs Forenses Event ID 4688/4672 (29.2ms)
+✔ Linux Simulator: Sistemas de Arquivos POSIX, stat, Inodes e umask (8.6ms)
+✔ Windows Simulator: Sistemas de Arquivos NTFS, Alternate Data Streams (ADS) e fsutil MFT (10.4ms)
+✔ Linux Simulator: IPC (mkfifo, ipcs), LKMs (lsmod, rmmod), Resgate e Script Runner (3.5ms)
+✔ Windows Simulator: Named Pipes (\\.\pipe\), Kernel Drivers BYOVD (driverquery), Resgate e PowerShell Runner (1.5ms)
 ✔ WinLinx Ultimate Range: Engenharia Reversa (readelf / dumpbin) & Kerberos AD (klist) (1.0ms)
-✔ WinLinx Fase 4: Forense de Memória (Volatility), YARA Hunting e Cloud/Docker Breakout (1.1ms)
-ℹ tests 14, pass 14, fail 0
+✔ WinLinx Fase 4: Forense de Memória (Volatility), YARA Hunting e Cloud/Docker Breakout (1.0ms)
+✔ WinLinx Fase 5: Quebra de Credenciais (Hashcat), Firmware Forensics (Binwalk) e SCADA OT (Modbus) (0.8ms)
+ℹ tests 15, pass 15, fail 0
 ```
 ```
 
