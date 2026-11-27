@@ -1,3 +1,4 @@
+import { parseTcpPort } from './networkDefense';
 import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 
 export class WindowsSimulatorEngine {
@@ -39,6 +40,10 @@ export class WindowsSimulatorEngine {
       active: true,
       blockedPorts: [...this.firewallBlockedPorts]
     };
+  }
+
+  public hasCustomAppWritableDacl(): boolean {
+    return this.getNodeByWindowsPath('C:\\Program Files\\Custom App')?.permissions?.includes('BUILTIN\\Users:(M,W,R)') ?? false;
   }
 
   public getRootFS(): FileNode {
@@ -381,6 +386,14 @@ export class WindowsSimulatorEngine {
     }
 
     const res = this.executeCommandInternal(trimmed, syscalls);
+    if (res.stateChanges?.flagDiscovered === 'FLAG{WINLINX_WINDOWS_ICACLS_REMEDIATED_2026}') {
+      forensicLogs.push({
+        ...forensicLogs[0],
+        id: Math.random().toString(),
+        eventId: 4670,
+        details: 'Alteração de DACL confirmada: BUILTIN\\Users sem acesso de escrita à pasta Custom App.'
+      });
+    }
     return { ...res, syscalls, edrAlerts, forensicLogs };
   }
 
@@ -864,9 +877,12 @@ MFT record structure             : $STANDARD_INFO, $FILE_NAME, $SECURITY_DESCRIP
 
       case 'netsh': {
         if (cmdLine.toLowerCase().includes('advfirewall')) {
-          if (cmdLine.toLowerCase().includes('add rule')) {
-            const portMatch = cmdLine.match(/localport=(\d+)/i) || cmdLine.match(/port=(\d+)/i);
-            const port = portMatch ? parseInt(portMatch[1], 10) : 8089;
+          if (args.slice(0, 4).join(' ').toLowerCase() === 'advfirewall firewall add rule') {
+            const options = args.slice(4).map(arg => arg.toLowerCase());
+            const port = parseTcpPort(options.find(arg => arg.startsWith('localport='))?.slice('localport='.length) ?? '');
+            if (port === null || !['dir=in', 'action=block', 'protocol=tcp'].every(option => options.includes(option))) {
+              return { output: 'netsh: use um bloqueio TCP de entrada com localport válido.', exitCode: 1 };
+            }
 
             if (!this.firewallBlockedPorts.includes(port)) {
               this.firewallBlockedPorts.push(port);
@@ -929,27 +945,39 @@ ${this.firewallBlockedPorts.map(p => `  TCP Porta ${p} (Regra: Bloqueio de Conex
           return { output: `${target}: O sistema não pode encontrar o arquivo especificado.`, exitCode: 1 };
         }
 
-        if (normalized.includes('Custom App') || node.name === 'Custom App') {
-          if (cmdLine.includes('/remove') || cmdLine.includes('/grant:r')) {
-            node.permissions = 'NTFS: BUILTIN\\Administrators:(F), NT AUTHORITY\\SYSTEM:(F), BUILTIN\\Users:(RX)';
+        if (node === this.getNodeByWindowsPath('C:\\Program Files\\Custom App')) {
+          if (args.length > 1) {
+            const option = args[1].toLowerCase();
+            const trustee = args[2]?.toLowerCase();
+            const removesWrite = (option === '/remove' && trustee === 'builtin\\users')
+              || (option === '/grant:r' && trustee === 'builtin\\users:(rx)');
+            if (!removesWrite || args.length !== 3) {
+              return { output: 'icacls: parâmetros de remediação não suportados neste cenário.', exitCode: 1 };
+            }
+
+            node.permissions = option === '/remove'
+              ? 'NTFS: BUILTIN\\Administrators:(F), NT AUTHORITY\\SYSTEM:(F)'
+              : 'NTFS: BUILTIN\\Administrators:(F), NT AUTHORITY\\SYSTEM:(F), BUILTIN\\Users:(RX)';
             return {
               output: `processado o arquivo: ${normalized}\n1 arquivos processados com êxito; 0 arquivos com falha de processamento.\n[DEFESA] Permissão indevida de Modificação removida de BUILTIN\\Users!`,
               exitCode: 0,
               stateChanges: {
+                filesModified: [normalized],
                 flagDiscovered: 'FLAG{WINLINX_WINDOWS_ICACLS_REMEDIATED_2026}'
               }
             };
           }
 
+          const vulnerable = this.hasCustomAppWritableDacl();
           return {
-            output: `${normalized} BUILTIN\\Users:(M,W,R)   <-- [VULNERABILIDADE: Usuários sem privilégio têm permissão de gravação/modificação!]
-                       BUILTIN\\Administrators:(I)(F)
-                       NT AUTHORITY\\SYSTEM:(I)(F)`,
+            output: `${normalized} ${node.permissions}${vulnerable ? '   <-- [VULNERABILIDADE: Usuários sem privilégio têm permissão de gravação/modificação!]' : ''}`,
             exitCode: 0,
-            stateChanges: {
-              flagDiscovered: 'FLAG{WINLINX_WINDOWS_WEAK_DACL_AUDITED}'
-            }
+            stateChanges: vulnerable ? { flagDiscovered: 'FLAG{WINLINX_WINDOWS_WEAK_DACL_AUDITED}' } : undefined
           };
+        }
+
+        if (args.length > 1) {
+          return { output: 'icacls: alteração de permissões não suportada para este caminho.', exitCode: 1 };
         }
 
         return {

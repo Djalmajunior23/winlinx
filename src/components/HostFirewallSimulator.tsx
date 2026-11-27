@@ -1,63 +1,44 @@
 import React, { useState } from 'react';
-import { 
-  ShieldCheck, 
-  ShieldAlert, 
-  Network, 
-  Flame, 
-  ArrowRight, 
-  Terminal, 
-  CheckCircle2, 
-  XCircle,
-  Play
-} from 'lucide-react';
+import { Flame, Network, ShieldCheck } from 'lucide-react';
+import { assessInboundTcp, parseTcpPort } from '../core/networkDefense';
+import type { ForensicLogRecord, OSProcess, OSType } from '../types/simulator';
 
 interface HostFirewallSimulatorProps {
-  linuxBlockedPorts: number[];
-  windowsBlockedPorts: number[];
-  onExecuteLinuxRule?: (cmd: string) => void;
-  onExecuteWindowsRule?: (cmd: string) => void;
+  hosts: Record<OSType, {
+    firewall: { active: boolean; blockedPorts: number[] };
+    processes: OSProcess[];
+  }>;
+  onBlockPort: (os: OSType, port: number) => void;
+  onProbe: (record: ForensicLogRecord) => void;
 }
 
-export const HostFirewallSimulator: React.FC<HostFirewallSimulatorProps> = ({
-  linuxBlockedPorts,
-  windowsBlockedPorts,
-  onExecuteLinuxRule,
-  onExecuteWindowsRule
-}) => {
-  const [selectedOS, setSelectedOS] = useState<'linux' | 'windows'>('linux');
+export function HostFirewallSimulator({ hosts, onBlockPort, onProbe }: HostFirewallSimulatorProps) {
+  const [selectedOS, setSelectedOS] = useState<OSType>('linux');
   const [testPort, setTestPort] = useState('4444');
-  const [testResult, setTestResult] = useState<string | null>(null);
-
-  const isPortBlocked = (port: number) => {
-    return selectedOS === 'linux' 
-      ? linuxBlockedPorts.includes(port) 
-      : windowsBlockedPorts.includes(port);
-  };
+  const [testedPort, setTestedPort] = useState<number | null>(null);
+  const { firewall, processes } = hosts[selectedOS];
+  const port = parseTcpPort(testPort);
+  const result = testedPort === null ? null : assessInboundTcp(testedPort, firewall, processes);
+  const message = result?.outcome === 'filtered' ? 'Filtrada pelo firewall · sem resposta TCP simulada'
+    : result?.outcome === 'open' ? 'Aberta · SYN → SYN-ACK → ACK'
+    : 'Fechada · TCP RST, sem processo em escuta';
 
   const handleTestConnection = () => {
-    const portNum = parseInt(testPort, 10);
-    if (isNaN(portNum)) {
-      setTestResult('Informe uma porta numérica válida.');
-      return;
-    }
-
-    const blocked = isPortBlocked(portNum);
-
-    if (blocked) {
-      setTestResult(
-        `🛡️ [CONEXÃO BLOQUEADA PELO FIREWALL DE HOST]
-Destino: 127.0.0.1:${portNum}
-Status: REJECT / DROP pelo subsistema de segurança (${selectedOS === 'linux' ? 'Netfilter / iptables' : 'Windows Filtering Platform - WFP'}).
-O pacote TCP SYN foi descartado em silêncio. Nenhum dado trafegou.`
-      );
-    } else {
-      setTestResult(
-        `⚠️ [CONEXÃO ESTABELECIDA COM SUCESSO - PORTA ABERTA!]
-Destino: 127.0.0.1:${portNum}
-Status: TCP Handshake Concluído (SYN -> SYN-ACK -> ACK).
-Alerta: A porta está exposta e desprotegida contra conexões remotas não autorizadas!`
-      );
-    }
+    if (port === null) return;
+    const { outcome, listener } = assessInboundTcp(port, firewall, processes);
+    setTestedPort(port);
+    onProbe({
+      id: Math.random().toString(36).slice(2),
+      timestamp: new Date().toLocaleTimeString(),
+      os: selectedOS,
+      source: selectedOS === 'linux' ? 'audit.log' : 'Security.evtx',
+      facility: 'SIM_TCP',
+      severity: outcome === 'open' && listener?.isSuspicious ? 'WARNING' : 'INFO',
+      user: 'aluno',
+      computer: selectedOS === 'linux' ? 'WINLINX-LNX-01' : 'WINLINX-WIN-2026',
+      processName: listener?.name,
+      details: `Sonda TCP simulada, porta ${port}. Resultado: ${outcome === 'filtered' ? 'filtrada' : outcome === 'open' ? 'aberta' : 'fechada'}.`
+    });
   };
 
   return (
@@ -83,7 +64,7 @@ Alerta: A porta está exposta e desprotegida contra conexões remotas não autor
               onClick={() => {
                 setSelectedOS('linux');
                 setTestPort('4444');
-                setTestResult(null);
+                setTestedPort(null);
               }}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
                 selectedOS === 'linux' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-slate-400 hover:text-slate-200'
@@ -95,7 +76,7 @@ Alerta: A porta está exposta e desprotegida contra conexões remotas não autor
               onClick={() => {
                 setSelectedOS('windows');
                 setTestPort('8089');
-                setTestResult(null);
+                setTestedPort(null);
               }}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
                 selectedOS === 'windows' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40' : 'text-slate-400 hover:text-slate-200'
@@ -116,45 +97,25 @@ Alerta: A porta está exposta e desprotegida contra conexões remotas não autor
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               Regras do Firewall Ativas — {selectedOS === 'linux' ? 'iptables / UFW' : 'Windows Advanced Firewall'}
             </h3>
-            <span className="text-[10px] text-slate-500 font-mono">Status: HABILITADO</span>
+            <span className="text-[10px] text-slate-500 font-mono">Status: {firewall.active ? 'HABILITADO' : 'DESABILITADO'}</span>
           </div>
 
           <div className="space-y-2 text-xs font-mono">
-            {selectedOS === 'linux' ? (
-              <>
-                <div className="p-2.5 rounded bg-slate-950 border border-slate-800 flex items-center justify-between">
-                  <span>Porta 22/TCP (SSH)</span>
-                  <span className="text-emerald-400 font-bold">ACCEPT (ALLOW)</span>
-                </div>
-                <div className="p-2.5 rounded bg-slate-950 border border-slate-800 flex items-center justify-between">
-                  <span>Porta 80/TCP (HTTP)</span>
-                  <span className="text-emerald-400 font-bold">ACCEPT (ALLOW)</span>
-                </div>
-                {linuxBlockedPorts.map(p => (
-                  <div key={p} className="p-2.5 rounded bg-rose-950/40 border border-rose-800/80 flex items-center justify-between text-rose-300">
-                    <span>Porta {p}/TCP (Tráfego Malicioso C2)</span>
-                    <span className="font-bold">DROP / DENY [REGRA DE DEFESA]</span>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <>
-                <div className="p-2.5 rounded bg-slate-950 border border-slate-800 flex items-center justify-between">
-                  <span>Porta 135/TCP (RPC Endpoint)</span>
-                  <span className="text-emerald-400 font-bold">ALLOW</span>
-                </div>
-                <div className="p-2.5 rounded bg-slate-950 border border-slate-800 flex items-center justify-between">
-                  <span>Porta 3389/TCP (RDP)</span>
-                  <span className="text-emerald-400 font-bold">ALLOW</span>
-                </div>
-                {windowsBlockedPorts.map(p => (
-                  <div key={p} className="p-2.5 rounded bg-rose-950/40 border border-rose-800/80 flex items-center justify-between text-rose-300">
-                    <span>Porta {p}/TCP (Serviço Vulnerável Não Homologado)</span>
-                    <span className="font-bold">BLOCK [REGRA DE DEFESA]</span>
-                  </div>
-                ))}
-              </>
-            )}
+            {firewall.blockedPorts.length === 0 && <p className="text-slate-400">Sem bloqueios explícitos de entrada.</p>}
+            {firewall.blockedPorts.map(port => (
+              <div key={port} className="p-2.5 rounded border border-rose-800 bg-rose-950/40 text-rose-300">
+                {port}/TCP · Bloqueio explícito
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-slate-200">Processos em escuta no cenário</h3>
+            <ul className="text-xs text-slate-300 space-y-1">
+              {processes.filter(process => process.status !== 'stopped' && process.networkPort !== undefined).map(process => (
+                <li key={process.pid}>{process.networkPort}/TCP · {process.name} (PID {process.pid})</li>
+              ))}
+            </ul>
           </div>
 
           {/* Dicas de Comandos */}
@@ -180,21 +141,24 @@ Alerta: A porta está exposta e desprotegida contra conexões remotas não autor
               Sonda de Tráfego de Rede (Testador de Porta)
             </h3>
             <p className="text-xs text-slate-400">
-              Dispare um pacote TCP SYN para verificar se a porta está protegida pelo firewall do sistema operacional.
+              Simule a chegada de um TCP SYN ao host virtual e compare o filtro de entrada com os processos em escuta.
             </p>
 
             <div className="space-y-2">
-              <label className="text-[10px] text-slate-400 uppercase font-mono block">Porta Alvo:</label>
+              <label htmlFor="tcp-port" className="text-[10px] text-slate-400 uppercase font-mono block">Porta Alvo:</label>
               <div className="flex gap-2">
                 <input
+                  id="tcp-port"
                   type="text"
+                  inputMode="numeric"
                   value={testPort}
-                  onChange={e => setTestPort(e.target.value)}
+                  onChange={e => { setTestPort(e.target.value); setTestedPort(null); }}
                   className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500"
                   placeholder="Ex: 4444 ou 8089"
                 />
                 <button
                   onClick={handleTestConnection}
+                  disabled={port === null}
                   className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
                 >
                   Testar Porta
@@ -202,18 +166,28 @@ Alerta: A porta está exposta e desprotegida contra conexões remotas não autor
               </div>
             </div>
 
-            {testResult && (
-              <div className={`p-4 rounded-xl border text-xs font-mono whitespace-pre-wrap leading-relaxed ${
-                isPortBlocked(parseInt(testPort, 10))
-                  ? 'bg-emerald-950/30 border-emerald-800/80 text-emerald-300'
-                  : 'bg-rose-950/40 border-rose-800 text-rose-300 animate-pulse'
-              }`}>
-                {testResult}
+            {port === null && <p className="text-xs text-amber-300">Informe uma porta TCP entre 1 e 65535.</p>}
+            {result && (
+              <div role="status" className="p-4 rounded-xl border border-slate-700 bg-slate-950 text-xs text-slate-200 space-y-2">
+                <p>{testedPort}/TCP · {message}</p>
+                {result.listener && <p>Processo em escuta: {result.listener.name} (PID {result.listener.pid})</p>}
               </div>
             )}
+            <button
+              type="button"
+              disabled={port === null || firewall.blockedPorts.includes(port)}
+              onClick={() => {
+                if (port === null) return;
+                onBlockPort(selectedOS, port);
+                setTestedPort(null);
+              }}
+              className="text-xs rounded border border-slate-700 px-3 py-2 text-cyan-300 disabled:opacity-40"
+            >
+              Bloquear entrada TCP no simulador
+            </button>
           </div>
         </div>
       </div>
     </div>
   );
-};
+}

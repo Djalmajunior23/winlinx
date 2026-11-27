@@ -32,7 +32,7 @@
   - **Linux (Netfilter / iptables / UFW):** Comandos `ufw status`, `ufw deny 4444` e `iptables -A INPUT -p tcp --dport 4444 -j DROP`.
   - **Windows (Windows Filtering Platform / netsh advfirewall):** Comandos `netsh advfirewall firewall show rule` e regras de bloqueio com `netsh advfirewall firewall add rule`.
 - **Sonda Interativa de Portas (Port Tester):**
-  - O aluno dispara sondas TCP SYN em tempo real e visualiza o descarte de pacotes (*Packet Drop*) nas portas de C2 bloqueadas.
+  - A sonda simulada diferencia porta aberta, fechada e filtrada, identifica o processo em escuta e registra o resultado nos Logs Forenses. O aluno pode aplicar um bloqueio de entrada e testar novamente.
 
 ### 4. Árvore Hierárquica Completa de Processos (`pstree` & `tasklist`)
 - Catálogo de processos legítimos do Linux (`systemd`, `kthreadd`, `systemd-journald`, `systemd-udevd`, `auditd`, `sshd`, `dbus-daemon`, `cron`, `nginx`).
@@ -154,12 +154,11 @@
   - **`windows.psscan`:** Localização de processos desvinculados da lista duplamente encadeada `_EPROCESS` por rootkits via manipulação de ponteiros DKOM.
   - **`linux.check_syscall`:** Comparação de `sys_call_table` contra o `System.map` identificando ganchos de rootkits LKM (`diamorphine.ko`) em `sys_getdents64` e `sys_kill` (`FLAG{WINLINX_MEMORY_VOLATILITY_ANALYZED_2026}`).
 
-### 20. Threat Hunting Studio: Criação de Regras YARA & SIGMA
-- **YARA Studio:**
-  - Editor interativo para assinaturas de detecção de malwares com blocos `meta`, `strings` (hexadecimal, ascii, wide) e `condition`.
-  - Scanner de regras integrado que varre o VFS e segmentos de memória com flags de confirmação (`FLAG{WINLINX_YARA_SIGMA_RULE_HUNTER_2026}`).
-- **SIGMA Rule Converter:**
-  - Criação de regras de detecção agnósticas (YAML) convertidas automaticamente para queries Splunk e Elastic Lucene.
+### 20. Threat Hunting Studio com amostras sintéticas
+
+- **YARA** testa texto ASCII e sequências de bytes hexadecimais em três arquivos sintéticos. Aceita um identificador, `any of them` ou `all of them` na condição.
+- **Sigma** testa uma seleção de campos `Image` e `CommandLine` em três eventos sintéticos. Aceita igualdade, `contains` e `endswith`, combinando os critérios com AND.
+- Os exemplos são editáveis. O resultado mostra as amostras correspondentes ou o erro de sintaxe do subconjunto didático.
 
 ### 21. Segurança em Nuvem & Contêineres (Cloud & Kubernetes Workload Defense)
 - **Simulação de Fuga de Contêiner (Container Breakout - MITRE T1611):**
@@ -277,3 +276,19 @@ npm run build
 | **T1564.004** | Alternate Data Streams (ADS) | Storage & Permissões (`dir /r` & ADS Explorer) |
 | **T1083** | File and Directory Discovery | Storage & Permissões (`stat` & Inodes) |
 | **T1068** | Exploitation for Privilege Escalation | Scanner & Auditoria de Vulnerabilidades |
+
+
+### Integração com iframe
+
+Os eventos locais continuam disponíveis em `winlinx-event`. Por padrão, o iframe
+envia mensagens somente à mesma origem da aplicação. Para autorizar uma
+plataforma externa, configure em `index.html` a origem exata do site pai
+antes do build:
+
+```html
+<meta name="winlinx-parent-origin" content="https://academy.example.org">
+```
+
+A origem deve conter o esquema e o domínio, com porta quando aplicável.
+A plataforma pai deve conferir a origem do WinLinx e a janela do iframe
+ao receber cada mensagem.

@@ -17,12 +17,19 @@ import { OSType, SecurityFinding } from '../types/simulator';
 
 interface SecurityAuditViewProps {
   onExecuteRemediation?: (os: OSType, command: string) => void;
-  completedTasks?: Set<string>;
+  linuxFirewallBlocked: boolean;
+  windowsFirewallBlocked: boolean;
+  linuxSuidVulnerable: boolean;
+  windowsDaclVulnerable: boolean;
   flagsFound?: string[];
 }
 
 export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
   onExecuteRemediation,
+  linuxFirewallBlocked,
+  windowsFirewallBlocked,
+  linuxSuidVulnerable,
+  windowsDaclVulnerable,
   flagsFound = []
 }) => {
   const [activeOSFilter, setActiveOSFilter] = useState<'all' | 'linux' | 'windows'>('all');
@@ -30,15 +37,10 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // Verificação dinâmica de vulnerabilidades com base nas flags encontradas
-  const isLinuxSuidFixed = flagsFound.includes('FLAG{WINLINX_LINUX_SUID_FIXED_DEFENDER_2026}');
   const isLinuxCapFixed = flagsFound.includes('FLAG{WINLINX_LINUX_CAPABILITIES_HARDENED_2026}');
   const isLinuxMalwareKilled = flagsFound.includes('FLAG{WINLINX_LINUX_MALICIOUS_PROCESS_KILLED_1337}');
-  const isLinuxFirewallBlocked = flagsFound.includes('FLAG{WINLINX_LINUX_FIREWALL_NETFILTER_BLOCKED_4444_2026}');
   
-  const isWinDaclRemediated = flagsFound.includes('FLAG{WINLINX_WINDOWS_ICACLS_REMEDIATED_2026}');
   const isWinLsassHardened = flagsFound.includes('FLAG{WINLINX_WINDOWS_LSA_RUNASPPL_ACTIVATED_2026}');
-  const isWinFirewallBlocked = flagsFound.includes('FLAG{WINLINX_WINDOWS_FIREWALL_RULE_APPLIED_8089_2026}');
   const isWinMalwareStopped = flagsFound.includes('FLAG{WINLINX_WINDOWS_MALICIOUS_PROCESS_TERMINATED_4992}');
 
   const findings: SecurityFinding[] = [
@@ -55,7 +57,7 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
       description: 'O binário /bin/find possui o bit SUID (SetUID) ativo e pertence ao root. Usuários sem privilégios podem usar o parâmetro -exec para executar comandos como root.',
       exploitationVector: 'find . -exec /bin/sh -p \\; -quit (Escape GTFOBins imediato para shell root)',
       remediationCommand: 'chmod 755 /bin/find',
-      isRemediated: isLinuxSuidFixed
+      isRemediated: !linuxSuidVulnerable
     },
     {
       id: 'VULN-LNX-002',
@@ -100,7 +102,7 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
       description: 'Firewall de host não possui regras descartando pacotes TCP SYN na porta de comando e controle 4444.',
       exploitationVector: 'Comunicação direta com servidor externo C2 (Command & Control).',
       remediationCommand: 'ufw deny 4444',
-      isRemediated: isLinuxFirewallBlocked
+      isRemediated: linuxFirewallBlocked
     },
     {
       id: 'VULN-WIN-001',
@@ -115,7 +117,7 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
       description: 'O caminho do serviço "C:\\Program Files\\Custom App\\service.exe" não contém aspas envolventes. O Windows tenta executar sequencialmente C:\\Program.exe antes do executável real.',
       exploitationVector: 'Depósito de C:\\Program.exe malicioso para obter execução de código no contexto de NT AUTHORITY\\SYSTEM.',
       remediationCommand: 'sc config WinVulnerableUpdater binPath= "\\"C:\\Program Files\\Custom App\\service.exe\\""',
-      isRemediated: isWinDaclRemediated
+      isRemediated: false
     },
     {
       id: 'VULN-WIN-002',
@@ -130,7 +132,7 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
       description: 'A lista de controle de acesso discricionário (DACL) concede direitos de Modificação (M) e Escrita (W) para o grupo não privilegiado BUILTIN\\Users.',
       exploitationVector: 'Substituição direta do arquivo service.exe por payload compilado.',
       remediationCommand: 'icacls "C:\\Program Files\\Custom App" /remove "BUILTIN\\Users"',
-      isRemediated: isWinDaclRemediated
+      isRemediated: !windowsDaclVulnerable
     },
     {
       id: 'VULN-WIN-003',
@@ -160,7 +162,7 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
       description: 'A porta TCP 8089 encontra-se aberta escutando conexões sem regras ativas na Windows Filtering Platform (WFP).',
       exploitationVector: 'Exfiltração de telemetria e recepção de comandos remotos.',
       remediationCommand: 'netsh advfirewall firewall add rule name="Block 8089" dir=in action=block protocol=TCP localport=8089',
-      isRemediated: isWinFirewallBlocked
+      isRemediated: windowsFirewallBlocked
     }
   ];
 

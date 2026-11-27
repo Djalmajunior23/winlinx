@@ -148,6 +148,7 @@ export interface LabTask {
   targetOS: OSType | 'both';
   objective: string;
   hint: string;
+  validateWithEngineFlag?: boolean;
   validationCommand?: string;
   expectedOutputSubstring?: string;
   flagReward?: string;

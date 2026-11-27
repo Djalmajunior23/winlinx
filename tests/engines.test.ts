@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert';
+import { assessInboundTcp, parseTcpPort } from '../src/core/networkDefense.ts';
+import { DEFAULT_SIGMA_RULE, DEFAULT_YARA_RULE, evaluateSigma, evaluateYara } from '../src/core/detectionStudio.ts';
+import { resolveParentOrigin } from '../src/core/eventBridge.ts';
 import { LinuxSimulatorEngine } from '../src/core/linuxEngine.ts';
 import { WindowsSimulatorEngine } from '../src/core/windowsEngine.ts';
 import { createInitialLinuxFS, createInitialWindowsFS } from '../src/core/defaultFileSystem.ts';
@@ -391,4 +394,80 @@ test('WinLinx Fase 6: Observabilidade & Defesa de Kernel (eBPF, Falco, ETW-Ti e 
   assert.strictEqual(canaryRes.exitCode, 0);
   assert.ok(canaryRes.output.includes('AKIAEXAMPLEFAKEHONEY2026'));
   assert.ok(canaryRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_CANARY_TOKEN_ARMED_2026}'));
+});
+
+test('Lab de permissões Linux: a evidência acompanha o bit SUID de /bin/find', () => {
+  const engine = new LinuxSimulatorEngine(createInitialLinuxFS());
+  assert.ok(engine.hasFindSetuid());
+  assert.ok(engine.execute('find / -perm -4000 2>/dev/null').stateChanges?.flagDiscovered);
+  assert.equal(engine.execute('echo /bin/find').stateChanges?.flagDiscovered, undefined);
+  assert.equal(engine.execute('chmod 755 /bin/ls').stateChanges?.flagDiscovered, undefined);
+  assert.equal(engine.execute('chmod errado /bin/find').exitCode, 1);
+  assert.ok(engine.hasFindSetuid());
+
+  const fix = engine.execute('sudo chmod -s /bin/find');
+  assert.equal(fix.exitCode, 0);
+  assert.deepEqual(fix.stateChanges?.filesModified, ['/bin/find']);
+  assert.ok(fix.forensicLogs?.some(log => log.details.includes('bit SUID desativado')));
+  assert.equal(engine.hasFindSetuid(), false);
+  assert.doesNotMatch(engine.execute('find / -perm -4000').output, /\/bin\/find/);
+
+  engine.execute('chmod 4755 /bin/find');
+  assert.ok(engine.hasFindSetuid());
+});
+
+test('Lab de permissões Windows: a evidência exige o caminho e grupo corretos', () => {
+  const engine = new WindowsSimulatorEngine(createInitialWindowsFS());
+  const target = '"C:\\Program Files\\Custom App"';
+  assert.ok(engine.hasCustomAppWritableDacl());
+  assert.equal(engine.execute(`icacls ${target} /remove "BUILTIN\\Administrators"`).exitCode, 1);
+  assert.equal(engine.execute(`icacls "${target.slice(1, -1)}\\service.exe" /remove "BUILTIN\\Users"`).exitCode, 1);
+  assert.ok(engine.hasCustomAppWritableDacl());
+
+  const fix = engine.execute(`icacls ${target} /remove "BUILTIN\\Users"`);
+  assert.equal(fix.exitCode, 0);
+  assert.ok(fix.forensicLogs?.some(log => log.eventId === 4670));
+  assert.equal(engine.hasCustomAppWritableDacl(), false);
+  const query = engine.execute(`icacls ${target}`);
+  assert.equal(query.stateChanges?.flagDiscovered, undefined);
+  assert.doesNotMatch(query.output, /BUILTIN\\Users/);
+});
+
+test('A sonda TCP distingue porta aberta, fechada e filtrada e rejeita entradas inválidas', () => {
+  const linux = new LinuxSimulatorEngine(createInitialLinuxFS());
+  const probe = (port: number) => assessInboundTcp(port, linux.getFirewallStatus(), linux.getProcesses());
+  assert.equal(probe(4444).outcome, 'open');
+  assert.equal(probe(65535).outcome, 'closed');
+  assert.equal(linux.execute('ufw deny 4444xyz').exitCode, 1);
+  assert.equal(probe(4444).outcome, 'open');
+  assert.equal(linux.execute('ufw deny 4444').exitCode, 0);
+  assert.equal(probe(4444).outcome, 'filtered');
+  assert.ok(probe(4444).listener);
+
+  const windows = new WindowsSimulatorEngine(createInitialWindowsFS());
+  const rule = 'netsh advfirewall firewall add rule name="WinLinx" dir=in protocol=TCP localport=8089';
+  assert.equal(windows.execute(rule + ' action=allow').exitCode, 1);
+  assert.equal(windows.execute(rule + ' action=block').exitCode, 0);
+  assert.equal(assessInboundTcp(8089, windows.getFirewallStatus(), windows.getProcesses()).outcome, 'filtered');
+  for (const input of ['0', '65536', '8089abc', '8.5', '-2']) {
+    assert.equal(parseTcpPort(input), null);
+  }
+});
+
+test('O estúdio avalia regras editadas e distingue ausência de correspondência de erro', () => {
+  assert.deepEqual(evaluateYara(DEFAULT_YARA_RULE).matches, ['anexo-sintetico.bin']);
+  assert.deepEqual(evaluateYara(DEFAULT_YARA_RULE.replace('DEMO_MARKER', 'AUSENTE')).matches, []);
+  assert.ok(evaluateYara(DEFAULT_YARA_RULE.replace('all of them', '$inexistente')).error);
+  assert.equal(evaluateSigma(DEFAULT_SIGMA_RULE).matches?.length, 1);
+  assert.deepEqual(evaluateSigma(DEFAULT_SIGMA_RULE.replace('cl Application', 'ausente')).matches, []);
+  assert.ok(evaluateSigma(DEFAULT_SIGMA_RULE.replace('contains', 'regex')).error);
+});
+
+test('A ponte de iframe aceita somente origens HTTP(S) explícitas', () => {
+  const origin = 'https://winlinx.example';
+  assert.equal(resolveParentOrigin(origin), origin);
+  assert.equal(resolveParentOrigin(origin, 'https://academy.example:8443'), 'https://academy.example:8443');
+  for (const invalid of ['*', 'null', 'https://academy.example/path', 'https://user@academy.example', 'data:text/plain,test']) {
+    assert.equal(resolveParentOrigin(origin, invalid), null);
+  }
 });

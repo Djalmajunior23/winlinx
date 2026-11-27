@@ -16,15 +16,27 @@ export interface WinLinxMessage {
   timestamp: string;
 }
 
+export function resolveParentOrigin(pageOrigin: string, configuredOrigin?: string): string | null {
+  const value = configuredOrigin?.trim() || pageOrigin;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && value === url.origin ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 export class WinLinxEventBridge {
   private static instance: WinLinxEventBridge;
-  private isEmbedded: boolean;
+  private readonly parentOrigin: string | null;
 
   private constructor() {
-    this.isEmbedded = typeof window !== 'undefined' && window.parent !== window;
-    if (typeof window !== 'undefined') {
-      window.addEventListener('message', this.handleIncomingMessage.bind(this));
-    }
+    this.parentOrigin = typeof window !== 'undefined' && window.parent !== window
+      ? resolveParentOrigin(
+        window.location.origin,
+        document.querySelector<HTMLMetaElement>('meta[name="winlinx-parent-origin"]')?.content
+      )
+      : null;
   }
 
   public static getInstance(): WinLinxEventBridge {
@@ -73,18 +85,13 @@ export class WinLinxEventBridge {
   private send(msg: WinLinxMessage) {
     if (typeof window === 'undefined') return;
     try {
-      if (this.isEmbedded) {
-        window.parent.postMessage(msg, '*');
+      if (this.parentOrigin) {
+        window.parent.postMessage(msg, this.parentOrigin);
       }
       // Também dispara evento local customizado para listeners dentro do app
       window.dispatchEvent(new CustomEvent('winlinx-event', { detail: msg }));
     } catch (e) {
       console.warn('Erro ao disparar postMessage no WinLinxEventBridge:', e);
     }
-  }
-
-  private handleIncomingMessage(event: MessageEvent) {
-    if (!event.data || event.data.target !== 'WINLINX') return;
-    console.log('[WinLinx EventBridge] Mensagem recebida da plataforma pai:', event.data);
   }
 }

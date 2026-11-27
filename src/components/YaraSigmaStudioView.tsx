@@ -1,62 +1,13 @@
 import React, { useState } from 'react';
-import { 
-  FileCode, 
-  Terminal, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Play, 
-  RotateCcw, 
-  Search, 
-  Layers, 
-  Code2, 
-  ShieldCheck,
-  Flame
-} from 'lucide-react';
+import { FileCode, Play } from 'lucide-react';
+import { DEFAULT_SIGMA_RULE, DEFAULT_YARA_RULE, evaluateSigma, evaluateYara } from '../core/detectionStudio';
 
 export const YaraSigmaStudioView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'yara' | 'sigma'>('yara');
-  const [yaraRule, setYaraRule] = useState<string>(`rule Detect_CobaltStrike_Beacon_Injected {
-    meta:
-        author = "WinLinx Threat Hunting Team"
-        description = "Detecta shellcode de injeção em memória com strings de beaconing"
-        severity = "CRITICAL"
-        mitre_technique = "T1055.012"
-    strings:
-        $magic = { 4D 5A 90 00 }          // Header MZ PE
-        $c2_beacon = "%s as %s\\%s: %d"  // Formato interno de Beacon
-        $hollowing = "VirtualAllocEx" ascii wide
-    condition:
-        $magic at 0 and ($c2_beacon or $hollowing)
-}`);
-
-  const [sigmaRule, setSigmaRule] = useState<string>(`title: Detecção de Exclusão de Cópias de Sombra (VSS)
-id: 5a8e3290-7164-4e3a-9e12-c24719bb8100
-status: experimental
-description: Identifica execução de vssadmin para inibir recuperação de desastres (Ransomware T1490)
-logsource:
-    category: process_creation
-    product: windows
-detection:
-    selection:
-        Image|endswith: '\\vssadmin.exe'
-        CommandLine|contains:
-            - 'delete'
-            - 'shadows'
-    condition: selection
-level: critical
-tags:
-    - attack.impact
-    - attack.t1490`);
-
-  const [scanResult, setScanResult] = useState<string | null>(null);
-
-  const testYaraRule = () => {
-    setScanResult('MATCH POSITIVO: Regra identificou 2 arquivos maliciosos no VFS e 1 região RWX de memória em powershell.exe!\nFLAG{WINLINX_YARA_SIGMA_RULE_HUNTER_2026}');
-  };
-
-  const testSigmaRule = () => {
-    setScanResult('CONVERSÃO BEM-SUCEDIDA:\n-> SPLUNK: index=windows EventCode=4688 Image="*\\\\vssadmin.exe" CommandLine="*delete*" CommandLine="*shadows*"\n-> ELASTIC: process.name: "vssadmin.exe" AND process.command_line: (*delete* AND *shadows*)\nFLAG{WINLINX_YARA_SIGMA_RULE_HUNTER_2026}');
-  };
+  const [yaraRule, setYaraRule] = useState(DEFAULT_YARA_RULE);
+  const [sigmaRule, setSigmaRule] = useState(DEFAULT_SIGMA_RULE);
+  const [result, setResult] = useState<ReturnType<typeof evaluateYara> | null>(null);
+  const isYara = activeTab === 'yara';
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -75,14 +26,14 @@ tags:
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Criação, validação e compilação de assinaturas YARA para arquivos e regras agnósticas SIGMA para SIEMs (Splunk, Elastic).
+                Teste regras editáveis contra amostras sintéticas de arquivos e eventos. O laboratório usa um subconjunto didático de YARA e Sigma.
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => { setActiveTab('yara'); setScanResult(null); }}
+              onClick={() => { setActiveTab('yara'); setResult(null); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 activeTab === 'yara' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
               }`}
@@ -90,12 +41,12 @@ tags:
               YARA Studio
             </button>
             <button
-              onClick={() => { setActiveTab('sigma'); setScanResult(null); }}
+              onClick={() => { setActiveTab('sigma'); setResult(null); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 activeTab === 'sigma' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
               }`}
             >
-              SIGMA Converter
+              Sigma Studio
             </button>
           </div>
         </div>
@@ -108,30 +59,42 @@ tags:
             {activeTab === 'yara' ? 'Editor de Regra YARA (.yar)' : 'Editor de Regra SIGMA (.yaml)'}
           </span>
           <button
-            onClick={activeTab === 'yara' ? testYaraRule : testSigmaRule}
+            onClick={() => setResult(isYara ? evaluateYara(yaraRule) : evaluateSigma(sigmaRule))}
             className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
           >
             <Play className="w-3.5 h-3.5 fill-white" />
-            <span>{activeTab === 'yara' ? 'Executar Scan YARA no VFS' : 'Converter Regra SIGMA'}</span>
+            <span>{activeTab === 'yara' ? 'Testar regra YARA' : 'Testar regra Sigma'}</span>
           </button>
         </div>
 
         <textarea
-          value={activeTab === 'yara' ? yaraRule : sigmaRule}
-          onChange={e => activeTab === 'yara' ? setYaraRule(e.target.value) : setSigmaRule(e.target.value)}
+          aria-label={isYara ? 'Regra YARA' : 'Regra Sigma'}
+          maxLength={8192}
+          value={isYara ? yaraRule : sigmaRule}
+          onChange={event => {
+            setResult(null);
+            if (isYara) setYaraRule(event.target.value);
+            else setSigmaRule(event.target.value);
+          }}
           rows={12}
           className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 font-mono text-xs text-amber-300 focus:outline-none focus:border-amber-500/50 resize-y"
         />
 
-        {scanResult && (
-          <div className="p-4 bg-amber-950/30 border border-amber-900/60 rounded-xl space-y-2 animate-in fade-in">
-            <div className="flex items-center space-x-2 text-xs font-bold text-amber-300">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Resultado da Execução do Mecanismo de Detecção:</span>
-            </div>
-            <pre className="font-mono text-xs text-slate-300 whitespace-pre-wrap bg-slate-950 p-3 rounded-lg border border-slate-800">
-              {scanResult}
-            </pre>
+        <p className="text-xs text-slate-400">
+          {isYara
+            ? 'Use texto ASCII ou bytes hexadecimais com um identificador, any of them ou all of them.'
+            : 'Use Image e CommandLine com igualdade, contains ou endswith. Todos os critérios da seleção precisam corresponder.'}
+        </p>
+        {result && (
+          <div role="status" className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs space-y-2">
+            {result.error ? <p className="text-amber-300">{result.error}</p> : (
+              <>
+                <p className="text-slate-200">{result.matches?.length ?? 0} de 3 amostras correspondem.</p>
+                <ul className="space-y-1 text-slate-400">
+                  {result.matches?.map(match => <li key={match}>{match}</li>)}
+                </ul>
+              </>
+            )}
           </div>
         )}
       </div>

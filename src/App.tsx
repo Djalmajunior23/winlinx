@@ -1,44 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Navbar, ActiveTab } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
-import { CurriculumView } from './components/CurriculumView';
-import { LabRunnerView } from './components/LabRunnerView';
-import { CommandComparator } from './components/CommandComparator';
-import { DualTerminalPlayground } from './components/DualTerminalPlayground';
-import { SyscallTracerView } from './components/SyscallTracerView';
-import { EDRTelemetryView } from './components/EDRTelemetryView';
-import { ProcessArchitectureExplorer } from './components/ProcessArchitectureExplorer';
-import { OSResourceAnatomyView } from './components/OSResourceAnatomyView';
-import { VirtualMemoryInspector } from './components/VirtualMemoryInspector';
-import { RegistryViewer } from './components/RegistryViewer';
-import { HostFirewallSimulator } from './components/HostFirewallSimulator';
-import { KernelArchitectureView } from './components/KernelArchitectureView';
-import { ForensicLogsViewer } from './components/ForensicLogsViewer';
-import { FileSystemPermissionsExplorer } from './components/FileSystemPermissionsExplorer';
-import { SecurityAuditView } from './components/SecurityAuditView';
-import { CertificateModal } from './components/CertificateModal';
-import { IPCArchitectureView } from './components/IPCArchitectureView';
-import { KernelDriversView } from './components/KernelDriversView';
-import { ThreatInjectorView } from './components/ThreatInjectorView';
-import { CustomLabBuilderView } from './components/CustomLabBuilderView';
-import { MalwareSandboxView } from './components/MalwareSandboxView';
-import { BinaryReverseEngineeringView } from './components/BinaryReverseEngineeringView';
-import { NetworkTopologyPivotView } from './components/NetworkTopologyPivotView';
-import { AdversaryEmulationView } from './components/AdversaryEmulationView';
-import { SOARPlaybookView } from './components/SOARPlaybookView';
-import { MemoryForensicsView } from './components/MemoryForensicsView';
-import { YaraSigmaStudioView } from './components/YaraSigmaStudioView';
-import { CloudContainerSecurityView } from './components/CloudContainerSecurityView';
-import { EDREvasionSyscallsView } from './components/EDREvasionSyscallsView';
-import { CredentialCrackingView } from './components/CredentialCrackingView';
-import { ThreatIntelMISPView } from './components/ThreatIntelMISPView';
-import { ICSOTSecurityView } from './components/ICSOTSecurityView';
-import { EBPFKernelTracerView } from './components/eBPFKernelTracerView';
-import { ETWThreatIntelView } from './components/ETWThreatIntelView';
-import { ContainerRuntimeSecurityView } from './components/ContainerRuntimeSecurityView';
-import { HoneypotDeceptionView } from './components/HoneypotDeceptionView';
-import { HypervisorVBSView } from './components/HypervisorVBSView';
-import { ZeroTrustKernelGuardView } from './components/ZeroTrustKernelGuardView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
@@ -47,14 +9,59 @@ import { createInitialLinuxFS, createInitialWindowsFS } from './core/defaultFile
 import { WinLinxEventBridge } from './core/eventBridge';
 import { Shield, ExternalLink, Terminal, Flame, BookOpen } from 'lucide-react';
 
+const CurriculumView = lazy(() => import('./components/CurriculumView').then(module => ({ default: module.CurriculumView })));
+const LabRunnerView = lazy(() => import('./components/LabRunnerView').then(module => ({ default: module.LabRunnerView })));
+const CommandComparator = lazy(() => import('./components/CommandComparator').then(module => ({ default: module.CommandComparator })));
+const DualTerminalPlayground = lazy(() => import('./components/DualTerminalPlayground').then(module => ({ default: module.DualTerminalPlayground })));
+const SyscallTracerView = lazy(() => import('./components/SyscallTracerView').then(module => ({ default: module.SyscallTracerView })));
+const EDRTelemetryView = lazy(() => import('./components/EDRTelemetryView').then(module => ({ default: module.EDRTelemetryView })));
+const ProcessArchitectureExplorer = lazy(() => import('./components/ProcessArchitectureExplorer').then(module => ({ default: module.ProcessArchitectureExplorer })));
+const OSResourceAnatomyView = lazy(() => import('./components/OSResourceAnatomyView').then(module => ({ default: module.OSResourceAnatomyView })));
+const VirtualMemoryInspector = lazy(() => import('./components/VirtualMemoryInspector').then(module => ({ default: module.VirtualMemoryInspector })));
+const RegistryViewer = lazy(() => import('./components/RegistryViewer').then(module => ({ default: module.RegistryViewer })));
+const HostFirewallSimulator = lazy(() => import('./components/HostFirewallSimulator').then(module => ({ default: module.HostFirewallSimulator })));
+const KernelArchitectureView = lazy(() => import('./components/KernelArchitectureView').then(module => ({ default: module.KernelArchitectureView })));
+const ForensicLogsViewer = lazy(() => import('./components/ForensicLogsViewer').then(module => ({ default: module.ForensicLogsViewer })));
+const FileSystemPermissionsExplorer = lazy(() => import('./components/FileSystemPermissionsExplorer').then(module => ({ default: module.FileSystemPermissionsExplorer })));
+const SecurityAuditView = lazy(() => import('./components/SecurityAuditView').then(module => ({ default: module.SecurityAuditView })));
+const CertificateModal = lazy(() => import('./components/CertificateModal').then(module => ({ default: module.CertificateModal })));
+const IPCArchitectureView = lazy(() => import('./components/IPCArchitectureView').then(module => ({ default: module.IPCArchitectureView })));
+const KernelDriversView = lazy(() => import('./components/KernelDriversView').then(module => ({ default: module.KernelDriversView })));
+const ThreatInjectorView = lazy(() => import('./components/ThreatInjectorView').then(module => ({ default: module.ThreatInjectorView })));
+const CustomLabBuilderView = lazy(() => import('./components/CustomLabBuilderView').then(module => ({ default: module.CustomLabBuilderView })));
+const MalwareSandboxView = lazy(() => import('./components/MalwareSandboxView').then(module => ({ default: module.MalwareSandboxView })));
+const BinaryReverseEngineeringView = lazy(() => import('./components/BinaryReverseEngineeringView').then(module => ({ default: module.BinaryReverseEngineeringView })));
+const NetworkTopologyPivotView = lazy(() => import('./components/NetworkTopologyPivotView').then(module => ({ default: module.NetworkTopologyPivotView })));
+const AdversaryEmulationView = lazy(() => import('./components/AdversaryEmulationView').then(module => ({ default: module.AdversaryEmulationView })));
+const SOARPlaybookView = lazy(() => import('./components/SOARPlaybookView').then(module => ({ default: module.SOARPlaybookView })));
+const MemoryForensicsView = lazy(() => import('./components/MemoryForensicsView').then(module => ({ default: module.MemoryForensicsView })));
+const YaraSigmaStudioView = lazy(() => import('./components/YaraSigmaStudioView').then(module => ({ default: module.YaraSigmaStudioView })));
+const CloudContainerSecurityView = lazy(() => import('./components/CloudContainerSecurityView').then(module => ({ default: module.CloudContainerSecurityView })));
+const EDREvasionSyscallsView = lazy(() => import('./components/EDREvasionSyscallsView').then(module => ({ default: module.EDREvasionSyscallsView })));
+const CredentialCrackingView = lazy(() => import('./components/CredentialCrackingView').then(module => ({ default: module.CredentialCrackingView })));
+const ThreatIntelMISPView = lazy(() => import('./components/ThreatIntelMISPView').then(module => ({ default: module.ThreatIntelMISPView })));
+const ICSOTSecurityView = lazy(() => import('./components/ICSOTSecurityView').then(module => ({ default: module.ICSOTSecurityView })));
+const EBPFKernelTracerView = lazy(() => import('./components/eBPFKernelTracerView').then(module => ({ default: module.EBPFKernelTracerView })));
+const ETWThreatIntelView = lazy(() => import('./components/ETWThreatIntelView').then(module => ({ default: module.ETWThreatIntelView })));
+const ContainerRuntimeSecurityView = lazy(() => import('./components/ContainerRuntimeSecurityView').then(module => ({ default: module.ContainerRuntimeSecurityView })));
+const HoneypotDeceptionView = lazy(() => import('./components/HoneypotDeceptionView').then(module => ({ default: module.HoneypotDeceptionView })));
+const HypervisorVBSView = lazy(() => import('./components/HypervisorVBSView').then(module => ({ default: module.HypervisorVBSView })));
+const ZeroTrustKernelGuardView = lazy(() => import('./components/ZeroTrustKernelGuardView').then(module => ({ default: module.ZeroTrustKernelGuardView })));
+
+function createPermissionsSession() {
+  return {
+    linux: new LinuxSimulatorEngine(createInitialLinuxFS()),
+    windows: new WindowsSimulatorEngine(createInitialWindowsFS())
+  };
+}
+
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeLabId, setActiveLabId] = useState<string>(PRACTICAL_LABS[0].id);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
 
-  // Instâncias singleton de motor para processos de SO
-  const [linuxEngine] = useState(() => new LinuxSimulatorEngine(createInitialLinuxFS()));
-  const [windowsEngine] = useState(() => new WindowsSimulatorEngine(createInitialWindowsFS()));
+  const [permissionsSession, setPermissionsSession] = useState(createPermissionsSession);
+  const { linux: linuxEngine, windows: windowsEngine } = permissionsSession;
 
   // Estados de telemetria sênior em tempo real
   const [syscalls, setSyscalls] = useState<SyscallTrace[]>([]);
@@ -214,6 +221,7 @@ export function App() {
       />
 
       {/* Conteúdo Principal */}
+      <Suspense fallback={<p role="status" className="flex-1 p-8 text-sm text-slate-400">Carregando módulo…</p>}>
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
           <DashboardView
@@ -257,7 +265,10 @@ export function App() {
         {activeTab === 'security-audit' && (
           <SecurityAuditView
             flagsFound={flagsFound}
-            completedTasks={completedTasks}
+            linuxFirewallBlocked={linuxEngine.getFirewallStatus().blockedPorts.includes(4444)}
+            windowsFirewallBlocked={windowsEngine.getFirewallStatus().blockedPorts.includes(8089)}
+            linuxSuidVulnerable={linuxEngine.hasFindSetuid()}
+            windowsDaclVulnerable={windowsEngine.hasCustomAppWritableDacl()}
             onExecuteRemediation={handleExecuteRemediation}
           />
         )}
@@ -270,8 +281,15 @@ export function App() {
 
         {activeTab === 'firewall' && (
           <HostFirewallSimulator
-            linuxBlockedPorts={linuxEngine.getFirewallStatus().blockedPorts}
-            windowsBlockedPorts={windowsEngine.getFirewallStatus().blockedPorts}
+            hosts={{
+              linux: { firewall: linuxEngine.getFirewallStatus(), processes: linuxEngine.getProcesses() },
+              windows: { firewall: windowsEngine.getFirewallStatus(), processes: windowsEngine.getProcesses() }
+            }}
+            onBlockPort={(os, port) => handleExecuteRemediation(os, os === 'linux'
+              ? `ufw deny ${port}`
+              : `netsh advfirewall firewall add rule name="Block ${port}" dir=in action=block protocol=TCP localport=${port}`
+            )}
+            onProbe={record => handleRecordForensicLogs([record])}
           />
         )}
 
@@ -391,6 +409,8 @@ export function App() {
         {activeTab === 'labs' && (
           <LabRunnerView
             activeLabId={activeLabId}
+            permissionsSession={permissionsSession}
+            onResetPermissionsSession={() => setPermissionsSession(createPermissionsSession())}
             onTaskCompleted={handleTaskCompleted}
             completedTasks={completedTasks}
             onRecordSyscalls={handleRecordSyscalls}
@@ -400,7 +420,7 @@ export function App() {
         )}
 
         {activeTab === 'dual-lab' && (
-          <DualTerminalPlayground 
+          <DualTerminalPlayground
             onCaptureFlag={handleCaptureFlag}
             onRecordSyscalls={handleRecordSyscalls}
             onRecordEDRAlerts={handleRecordEDRAlerts}
@@ -426,14 +446,18 @@ export function App() {
           />
         )}
       </main>
+      </Suspense>
 
-      {/* Modal de Certificado */}
-      <CertificateModal
-        isOpen={isCertificateOpen}
-        onClose={() => setIsCertificateOpen(false)}
-        completedTasks={completedTasks}
-        flagsFound={flagsFound}
-      />
+      {isCertificateOpen && (
+        <Suspense fallback={null}>
+          <CertificateModal
+            isOpen={isCertificateOpen}
+            onClose={() => setIsCertificateOpen(false)}
+            completedTasks={completedTasks}
+            flagsFound={flagsFound}
+          />
+        </Suspense>
+      )}
 
       {/* Rodapé Integrado */}
       <footer className="border-t border-slate-900 bg-slate-950/80 py-6 text-xs text-slate-500">

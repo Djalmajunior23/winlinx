@@ -27,8 +27,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'No terminal Linux, procure por binários configurados com bit SUID ativo em todo o sistema. Dica: use o comando find filtrando por permissão -4000.',
         objective: 'Localizar o utilitário administrativo find com bit SUID habilitado indevidamente.',
         hint: 'Digite: find / -perm -4000 2>/dev/null',
-        validationCommand: 'find / -perm -4000',
-        expectedOutputSubstring: '/bin/find',
+        validateWithEngineFlag: true,
         flagReward: 'FLAG{WINLINX_LINUX_SUID_DISCOVERED}'
       },
       {
@@ -38,8 +37,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Remova a permissão SUID do binário /bin/find para que ele não execute mais com os privilégios do usuário root.',
         objective: 'Remover o bit SUID com o comando chmod.',
         hint: 'Execute: chmod 755 /bin/find ou chmod -s /bin/find',
-        validationCommand: 'chmod 755 /bin/find',
-        expectedOutputSubstring: 'Permissão SUID removida',
+        validateWithEngineFlag: true,
         flagReward: 'FLAG{WINLINX_LINUX_SUID_FIXED_DEFENDER_2026}'
       },
       {
@@ -49,8 +47,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Alterne para o terminal Windows e inspecione as permissões de acesso da pasta "C:\\Program Files\\Custom App" com o comando icacls.',
         objective: 'Descobrir se o grupo Users possui permissão de modificação indevida.',
         hint: 'Execute: icacls "C:\\Program Files\\Custom App"',
-        validationCommand: 'icacls "C:\\Program Files\\Custom App"',
-        expectedOutputSubstring: 'BUILTIN\\Users:(M,W,R)',
+        validateWithEngineFlag: true,
         flagReward: 'FLAG{WINLINX_WINDOWS_WEAK_DACL_AUDITED}'
       },
       {
@@ -60,8 +57,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Remova a permissão de modificação do grupo BUILTIN\\Users da pasta Custom App.',
         objective: 'Remover o privilégio excessivo usando o parâmetro /remove no icacls.',
         hint: 'Execute: icacls "C:\\Program Files\\Custom App" /remove "BUILTIN\\Users"',
-        validationCommand: 'icacls "C:\\Program Files\\Custom App" /remove "BUILTIN\\Users"',
-        expectedOutputSubstring: '[DEFESA] Permissão indevida',
+        validateWithEngineFlag: true,
         flagReward: 'FLAG{WINLINX_WINDOWS_ICACLS_REMEDIATED_2026}'
       }
     ]

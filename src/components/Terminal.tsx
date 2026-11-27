@@ -281,6 +281,7 @@ export const Terminal: React.FC<TerminalProps> = ({
         <div className="flex items-center pt-1">
           {getPromptPrefix()}
           <input
+            aria-label={osType === 'linux' ? 'Comando Linux' : 'Comando Windows'}
             ref={inputRef}
             type="text"
             value={inputVal}

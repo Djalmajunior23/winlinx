@@ -290,6 +290,7 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
                 <option value="ALL" className="bg-slate-900 text-slate-200">Todos os Event IDs</option>
                 <option value="4688" className="bg-slate-900 text-cyan-400">4688 - Criação de Processo</option>
                 <option value="7045" className="bg-slate-900 text-amber-400">7045 - Novo Serviço Instalado</option>
+                <option value="4670" className="bg-slate-900 text-cyan-400">4670 - Alteração de Permissões</option>
                 <option value="4672" className="bg-slate-900 text-purple-400">4672 - Privilégios Especiais</option>
                 <option value="4624" className="bg-slate-900 text-emerald-400">4624 - Logon com Sucesso</option>
               </select>

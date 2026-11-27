@@ -197,7 +197,7 @@ const CAPABILITIES_CATALOG: CapabilityCard[] = [
     id: 'yara-sigma',
     title: 'Threat Hunting (YARA & SIGMA Studio)',
     category: 'Engenharia Reversa & Ameaças',
-    description: 'Criação de assinaturas YARA com varredura em VFS/RAM e conversão de regras SIGMA para Splunk/Elastic.',
+    description: 'Teste regras YARA e Sigma editáveis sobre arquivos e eventos sintéticos e compare as correspondências.',
     badge: 'DETECTION ENG',
     icon: FileCode,
     accentColor: 'from-amber-500/20 to-amber-950/40 text-amber-400 border-amber-500/30'

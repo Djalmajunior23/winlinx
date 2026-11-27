@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PRACTICAL_LABS } from '../data/labs';
-import { LabDefinition, LabTask, OSType, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
+import { CommandResult, OSType, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 import { Terminal } from './Terminal';
 import { LinuxSimulatorEngine } from '../core/linuxEngine';
 import { WindowsSimulatorEngine } from '../core/windowsEngine';
@@ -22,6 +22,11 @@ interface LabRunnerViewProps {
   activeLabId?: string;
   onTaskCompleted: (taskId: string, flag?: string) => void;
   completedTasks: Set<string>;
+  permissionsSession: {
+    linux: LinuxSimulatorEngine;
+    windows: WindowsSimulatorEngine;
+  };
+  onResetPermissionsSession: () => void;
   onRecordSyscalls?: (traces: SyscallTrace[]) => void;
   onRecordEDRAlerts?: (alerts: EDRAlert[]) => void;
   onRecordForensicLogs?: (logs: ForensicLogRecord[]) => void;
@@ -31,68 +36,53 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
   activeLabId,
   onTaskCompleted,
   completedTasks,
+  permissionsSession,
+  onResetPermissionsSession,
   onRecordSyscalls,
   onRecordEDRAlerts,
   onRecordForensicLogs
 }) => {
   const [selectedLabId, setSelectedLabId] = useState<string>(activeLabId || PRACTICAL_LABS[0].id);
-  const [activeOS, setActiveOS] = useState<OSType>('linux');
+  const [activeOS, setActiveOS] = useState<OSType>(() =>
+    PRACTICAL_LABS.find(lab => lab.id === selectedLabId)?.tasks[0]?.targetOS === 'windows' ? 'windows' : 'linux'
+  );
   const [showHintForTaskId, setShowHintForTaskId] = useState<string | null>(null);
 
-  const [linuxEngine, setLinuxEngine] = useState(() => new LinuxSimulatorEngine(createInitialLinuxFS()));
-  const [windowsEngine, setWindowsEngine] = useState(() => new WindowsSimulatorEngine(createInitialWindowsFS()));
-
-  const [linuxState, setLinuxState] = useState({
-    cwd: linuxEngine.getCurrentDir(),
-    user: linuxEngine.getCurrentUser()
-  });
-
-  const [winState, setWinState] = useState({
-    cwd: windowsEngine.getCurrentDir(),
-    user: windowsEngine.getCurrentUser()
-  });
+  const [labLinux, setLabLinux] = useState(() => new LinuxSimulatorEngine(createInitialLinuxFS()));
+  const [labWindows, setLabWindows] = useState(() => new WindowsSimulatorEngine(createInitialWindowsFS()));
+  const [, setPromptRevision] = useState(0);
+  const [terminalRevision, setTerminalRevision] = useState(0);
 
   const currentLab = PRACTICAL_LABS.find(l => l.id === selectedLabId) || PRACTICAL_LABS[0];
+  const isPermissionsLab = currentLab.id === 'lab-permissions-dacl';
+  const linuxEngine = isPermissionsLab ? permissionsSession.linux : labLinux;
+  const windowsEngine = isPermissionsLab ? permissionsSession.windows : labWindows;
 
   const handleResetLab = () => {
-    const newLinux = new LinuxSimulatorEngine(createInitialLinuxFS());
-    const newWin = new WindowsSimulatorEngine(createInitialWindowsFS());
-    setLinuxEngine(newLinux);
-    setWindowsEngine(newWin);
-    setLinuxState({ cwd: newLinux.getCurrentDir(), user: newLinux.getCurrentUser() });
-    setWinState({ cwd: newWin.getCurrentDir(), user: newWin.getCurrentUser() });
+    if (isPermissionsLab) {
+      onResetPermissionsSession();
+    } else {
+      setLabLinux(new LinuxSimulatorEngine(createInitialLinuxFS()));
+      setLabWindows(new WindowsSimulatorEngine(createInitialWindowsFS()));
+    }
+    setTerminalRevision(previous => previous + 1);
   };
 
   const handleExecuteCommand = (cmd: string) => {
-    let res: { output: string; error?: string; exitCode: number; flag?: string } = { output: '', exitCode: 0 };
+    const engine = activeOS === 'linux' ? linuxEngine : windowsEngine;
+    const result: CommandResult = engine.execute(cmd);
+    setPromptRevision(previous => previous + 1);
+    if (result.syscalls) onRecordSyscalls?.(result.syscalls);
+    if (result.edrAlerts) onRecordEDRAlerts?.(result.edrAlerts);
+    if (result.forensicLogs) onRecordForensicLogs?.(result.forensicLogs);
 
-    if (activeOS === 'linux') {
-      const exec = linuxEngine.execute(cmd);
-      setLinuxState({ cwd: linuxEngine.getCurrentDir(), user: linuxEngine.getCurrentUser() });
-      if (exec.syscalls && onRecordSyscalls) onRecordSyscalls(exec.syscalls);
-      if (exec.edrAlerts && onRecordEDRAlerts) onRecordEDRAlerts(exec.edrAlerts);
-      if (exec.forensicLogs && onRecordForensicLogs) onRecordForensicLogs(exec.forensicLogs);
-
-      res = {
-        output: exec.output,
-        error: exec.error,
-        exitCode: exec.exitCode,
-        flag: exec.stateChanges?.flagDiscovered
-      };
-    } else {
-      const exec = windowsEngine.execute(cmd);
-      setWinState({ cwd: windowsEngine.getCurrentDir(), user: windowsEngine.getCurrentUser() });
-      if (exec.syscalls && onRecordSyscalls) onRecordSyscalls(exec.syscalls);
-      if (exec.edrAlerts && onRecordEDRAlerts) onRecordEDRAlerts(exec.edrAlerts);
-      if (exec.forensicLogs && onRecordForensicLogs) onRecordForensicLogs(exec.forensicLogs);
-
-      res = {
-        output: exec.output,
-        error: exec.error,
-        exitCode: exec.exitCode,
-        flag: exec.stateChanges?.flagDiscovered
-      };
-    }
+    const res = {
+      output: result.output,
+      error: result.error,
+      exitCode: result.exitCode,
+      flag: result.stateChanges?.flagDiscovered
+    };
+    if (res.exitCode !== 0) return res;
 
     currentLab.tasks.forEach(task => {
       if (completedTasks.has(task.id)) return;
@@ -100,17 +90,15 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
       const isTargetOS = task.targetOS === 'both' || task.targetOS === activeOS;
       if (!isTargetOS) return;
 
-      let matched = false;
-
-      if (task.validationCommand && cmd.toLowerCase().includes(task.validationCommand.toLowerCase().split(' ')[0])) {
-        if (task.expectedOutputSubstring && res.output.includes(task.expectedOutputSubstring)) {
-          matched = true;
-        } else if (!task.expectedOutputSubstring && res.exitCode === 0) {
-          matched = true;
-        }
-      } else if (task.expectedOutputSubstring && res.output.includes(task.expectedOutputSubstring)) {
-        matched = true;
-      }
+      const command = cmd.trim().replace(/\s+/g, ' ');
+      const enteredCommand = activeOS === 'windows' ? command.toLowerCase() : command;
+      const expectedCommand = activeOS === 'windows' ? task.validationCommand?.toLowerCase() : task.validationCommand;
+      const matchesCommand = expectedCommand && (
+        enteredCommand === expectedCommand || enteredCommand.startsWith(`${expectedCommand} `)
+      );
+      const matched = task.validateWithEngineFlag
+        ? task.flagReward !== undefined && res.flag === task.flagReward
+        : matchesCommand && (!task.expectedOutputSubstring || res.output.includes(task.expectedOutputSubstring));
 
       if (matched) {
         onTaskCompleted(task.id, task.flagReward);
@@ -226,7 +214,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                   title="Reiniciar máquinas para o estado inicial"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  <span>Reset Lab</span>
+                  <span>Reiniciar máquinas</span>
                 </button>
               </div>
 
@@ -349,9 +337,10 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
           <div className="h-[520px]">
             {activeOS === 'linux' ? (
               <Terminal
+                key={`${currentLab.id}-${activeOS}-${terminalRevision}`}
                 osType="linux"
-                currentDir={linuxState.cwd}
-                currentUser={linuxState.user}
+                currentDir={linuxEngine.getCurrentDir()}
+                currentUser={linuxEngine.getCurrentUser()}
                 onExecuteCommand={handleExecuteCommand}
                 onAutoComplete={(prefix) => linuxEngine.getAutoCompleteOptions(prefix)}
                 title="Linux Lab Host - Prática de SO Aberto"
@@ -359,9 +348,10 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
               />
             ) : (
               <Terminal
+                key={`${currentLab.id}-${activeOS}-${terminalRevision}`}
                 osType="windows"
-                currentDir={winState.cwd}
-                currentUser={winState.user}
+                currentDir={windowsEngine.getCurrentDir()}
+                currentUser={windowsEngine.getCurrentUser()}
                 onExecuteCommand={handleExecuteCommand}
                 onAutoComplete={(prefix) => windowsEngine.getAutoCompleteOptions(prefix)}
                 title="Windows Lab Host - Prática de SO Fechado"

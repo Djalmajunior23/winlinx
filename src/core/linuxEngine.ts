@@ -1,3 +1,4 @@
+import { parseTcpPort } from './networkDefense';
 import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 
 export class LinuxSimulatorEngine {
@@ -19,6 +20,13 @@ export class LinuxSimulatorEngine {
       active: this.firewallActive,
       blockedPorts: [...this.firewallBlockedPorts]
     };
+  }
+
+  public hasFindSetuid(): boolean {
+    const permissions = this.getNodeByPath('/bin/find')?.permissions ?? '';
+    return /^[0-7]{4}$/.test(permissions)
+      ? (Number(permissions[0]) & 4) !== 0
+      : /[sS]/.test(permissions[3] ?? '');
   }
 
   public getRootFS(): FileNode {
@@ -249,6 +257,17 @@ export class LinuxSimulatorEngine {
       mitreRef: edrAlerts.length > 0 ? edrAlerts[0].mitreId : undefined
     });
 
+    const recordPermissionsChange = (result: CommandResult) => {
+      if (result.stateChanges?.filesModified?.includes('/bin/find')) {
+        forensicLogs.push({
+          ...forensicLogs[0],
+          id: Math.random().toString(),
+          processName: 'chmod',
+          details: 'Alteração de permissões em /bin/find confirmada: bit SUID desativado.'
+        });
+      }
+    };
+
     if (trimmed.startsWith('sudo') || trimmed.includes('/etc/shadow') || trimmed.includes('su -')) {
       forensicLogs.push({
         id: Math.random().toString(),
@@ -318,6 +337,7 @@ export class LinuxSimulatorEngine {
       this.currentUser = 'root';
       const res = this.executeCommandInternal(rest, syscalls);
       this.currentUser = prevUser;
+      recordPermissionsChange(res);
       return { ...res, syscalls, edrAlerts, forensicLogs };
     }
 
@@ -338,6 +358,7 @@ export class LinuxSimulatorEngine {
     }
 
     const execResult = this.executeCommandInternal(trimmed, syscalls);
+    recordPermissionsChange(execResult);
     return { ...execResult, syscalls, edrAlerts, forensicLogs };
   }
 
@@ -1086,8 +1107,8 @@ ${this.firewallBlockedPorts.map(p => `${p}/tcp                     DENY        A
           };
         }
         if (sub === 'deny' || sub === 'reject') {
-          const port = parseInt(args[1], 10);
-          if (isNaN(port)) return { output: 'ufw: informe a porta a ser bloqueada. Ex: ufw deny 4444', exitCode: 1 };
+          const port = parseTcpPort(args[1]?.replace(/\/tcp$/i, '') ?? '');
+          if (port === null) return { output: 'ufw: informe a porta a ser bloqueada. Ex: ufw deny 4444', exitCode: 1 };
           if (!this.firewallBlockedPorts.includes(port)) {
             this.firewallBlockedPorts.push(port);
           }
@@ -1104,7 +1125,7 @@ ${this.firewallBlockedPorts.map(p => `${p}/tcp                     DENY        A
           });
 
           return {
-            output: `Regra adicionada\nRegra adicionada (v6)\n[DEFESA] Porta ${port} bloqueada no Netfilter/UFW! Tráfego de entrada e saída descartado.`,
+            output: `Regra adicionada\nRegra adicionada (v6)\n[DEFESA] Porta ${port} bloqueada no Netfilter/UFW! Tráfego TCP de entrada bloqueado.`,
             exitCode: 0,
             stateChanges: {
               flagDiscovered: port === 4444 ? 'FLAG{WINLINX_LINUX_FIREWALL_NETFILTER_BLOCKED_4444}' : undefined
@@ -1115,9 +1136,13 @@ ${this.firewallBlockedPorts.map(p => `${p}/tcp                     DENY        A
       }
 
       case 'iptables': {
-        if (cmdLine.includes('-A') && (cmdLine.includes('DROP') || cmdLine.includes('REJECT'))) {
-          const matchPort = cmdLine.match(/--dport\s+(\d+)/);
-          const port = matchPort ? parseInt(matchPort[1], 10) : 4444;
+        if (args.includes('-A')) {
+          const target = args[args.indexOf('-j') + 1];
+          const portFlag = args.indexOf('--dport');
+          const port = parseTcpPort(portFlag >= 0 ? args[portFlag + 1] ?? '' : '');
+          if (args[args.indexOf('-A') + 1] !== 'INPUT' || !['DROP', 'REJECT'].includes(target) || port === null) {
+            return { output: 'iptables: use INPUT com destino TCP e ação DROP ou REJECT.', exitCode: 1 };
+          }
           if (!this.firewallBlockedPorts.includes(port)) {
             this.firewallBlockedPorts.push(port);
           }
@@ -1140,13 +1165,18 @@ ${this.firewallBlockedPorts.map(p => `DROP       tcp  --  0.0.0.0/0            0
       }
 
       case 'find': {
-        if (cmdLine.includes('-perm -4000') || cmdLine.includes('-u=s')) {
+        const permissionFilter = args.some((arg, index) =>
+          arg === '-perm' && ['-4000', '-u=s'].includes(args[index + 1])
+        );
+        if (permissionFilter && args[0] === '/') {
+          const vulnerable = this.hasFindSetuid();
+          const paths = ['/usr/bin/su', '/usr/bin/passwd', '/usr/bin/newgrp', '/usr/bin/gpasswd', '/bin/ping'];
+          if (vulnerable) paths.push('/bin/find  <-- [ALERTA: SUID ativado indevidamente!]');
+
           return {
-            output: `/usr/bin/su\n/usr/bin/passwd\n/usr/bin/newgrp\n/usr/bin/gpasswd\n/bin/ping\n/bin/find  <-- [ALERTA: SUID ativado indevidamente!]`,
+            output: paths.join('\n'),
             exitCode: 0,
-            stateChanges: {
-              flagDiscovered: 'FLAG{WINLINX_LINUX_SUID_DISCOVERED}'
-            }
+            stateChanges: vulnerable ? { flagDiscovered: 'FLAG{WINLINX_LINUX_SUID_DISCOVERED}' } : undefined
           };
         }
         return { output: `/home/aluno/notas_aula.txt\n/home/aluno/.bashrc`, exitCode: 0 };
@@ -1192,24 +1222,36 @@ ${this.firewallBlockedPorts.map(p => `DROP       tcp  --  0.0.0.0/0            0
       case 'chmod': {
         const perms = args[0];
         const target = args[1];
-        if (!perms || !target) {
+        if (!perms || !target || args.length !== 2 || !/^(?:-s|[0-7]{3,4})$/.test(perms)) {
           return { output: 'chmod: sintaxe incorreta. Exemplo: chmod 755 arquivo ou chmod -s arquivo', exitCode: 1 };
         }
-        const node = this.getNodeByPath(this.resolvePath(target));
+        const path = this.resolvePath(target);
+        const node = this.getNodeByPath(path);
         if (!node) {
           return { output: `chmod: arquivo '${target}' não encontrado`, exitCode: 1 };
         }
-        if ((target.includes('find') || node.name === 'find') && (perms.includes('-s') || perms === '755' || perms === '0755')) {
-          node.permissions = '-rwxr-xr-x';
+        const isFind = node === this.getNodeByPath('/bin/find');
+        if (perms === '-s') {
+          const previous = node.permissions ?? '';
+          if (/^[0-7]{4}$/.test(previous)) {
+            node.permissions = String(Number(previous[0]) & 3) + previous.slice(1);
+          } else if (/^[sS]$/.test(previous[3] ?? '')) {
+            node.permissions = previous.slice(0, 3) + (previous[3] === 's' ? 'x' : '-') + previous.slice(4);
+          }
+        } else {
+          node.permissions = perms === '755' || perms === '0755' ? '-rwxr-xr-x' : perms;
+        }
+
+        if (isFind && !this.hasFindSetuid()) {
           return {
             output: `[SUCESSO] Permissão SUID removida do binário '${node.name}'. Vulnerabilidade de elevação corrigida!`,
             exitCode: 0,
             stateChanges: {
+              filesModified: ['/bin/find'],
               flagDiscovered: 'FLAG{WINLINX_LINUX_SUID_FIXED_DEFENDER_2026}'
             }
           };
         }
-        node.permissions = perms;
         return { output: `Permissões de ${node.name} alteradas para ${perms}.`, exitCode: 0 };
       }
 
