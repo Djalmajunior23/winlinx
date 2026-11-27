@@ -1365,6 +1365,38 @@ Digite um comando ou execute um script: powershell -File <script.ps1>`,
         };
       }
 
+      case 'logman': {
+        return {
+          output: `=== [Event Tracing for Windows - ETW-Ti Controller] ===
+Sessão de Rastreamento: WinLinx-ETW-Ti-Session
+Provedor Conectado: Microsoft-Windows-Threat-Intelligence ({F4E1897C-BB5D-5668-AC15-61DA79A40B45})
+Status: Running
+Modo de Gravação: Tempo Real (Kernel Circular Buffer)
+Eventos Capturados: NtProtectVirtualMemory, NtAllocateVirtualMemory (Direct Syscalls & Process Injection Hook Detection)
+FLAG{WINLINX_WINDOWS_LOGMAN_ETW_SESSION_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_LOGMAN_ETW_SESSION_2026}'
+          }
+        };
+      }
+
+      case 'canarytoken':
+      case 'canary': {
+        return {
+          output: `=== [CanaryTokens & Cyber Deception Agent] ===
+[+] Honeytoken Gerado: AWS_ACCESS_KEY_ID (AKIAEXAMPLEFAKEHONEY2026)
+[+] Armadilha Implantada: C:\\Users\\Aluno\\Desktop\\vpn_passwords.xlsx
+[+] Webhook Sentinel: Ativo (Alertando instantaneamente via SIEM ao primeiro acesso não autorizado)
+[STATUS] Sistema armadilhado. Qualquer leitura por atacante dispara alerta prioritário de intrusão!
+FLAG{WINLINX_WINDOWS_CANARY_TOKEN_ARMED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_WINDOWS_CANARY_TOKEN_ARMED_2026}'
+          }
+        };
+      }
+
       case 'help':
       case 'get-help': {
         return {

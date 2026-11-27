@@ -362,3 +362,33 @@ test('WinLinx Fase 5: Quebra de Credenciais (Hashcat), Firmware Forensics (Binwa
   assert.ok(winModbusRes.output.includes('Coil override complete'));
   assert.ok(winModbusRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_MODBUS_OVERRIDE_2026}'));
 });
+
+test('WinLinx Fase 6: Observabilidade & Defesa de Kernel (eBPF, Falco, ETW-Ti e CanaryTokens)', () => {
+  const linuxEngine = new LinuxSimulatorEngine(createInitialLinuxFS());
+  const windowsEngine = new WindowsSimulatorEngine(createInitialWindowsFS());
+
+  // Linux bpftool (eBPF Probes)
+  const bpfRes = linuxEngine.execute('bpftool prog show');
+  assert.strictEqual(bpfRes.exitCode, 0);
+  assert.ok(bpfRes.output.includes('kprobe'));
+  assert.ok(bpfRes.output.includes('tracepoint'));
+  assert.ok(bpfRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_BPFTOOL_PROG_AUDITED_2026}'));
+
+  // Linux Falco (Runtime Security)
+  const falcoRes = linuxEngine.execute('falco -c /etc/falco/falco.yaml');
+  assert.strictEqual(falcoRes.exitCode, 0);
+  assert.ok(falcoRes.output.includes('Shell spawned in container'));
+  assert.ok(falcoRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_LINUX_FALCO_CONTAINER_ALERT_2026}'));
+
+  // Windows logman (ETW-Ti)
+  const logmanRes = windowsEngine.execute('logman start WinLinx-ETW-Ti-Session');
+  assert.strictEqual(logmanRes.exitCode, 0);
+  assert.ok(logmanRes.output.includes('Microsoft-Windows-Threat-Intelligence'));
+  assert.ok(logmanRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_LOGMAN_ETW_SESSION_2026}'));
+
+  // Windows CanaryToken (Cyber Deception)
+  const canaryRes = windowsEngine.execute('canarytoken --generate --type aws');
+  assert.strictEqual(canaryRes.exitCode, 0);
+  assert.ok(canaryRes.output.includes('AKIAEXAMPLEFAKEHONEY2026'));
+  assert.ok(canaryRes.stateChanges?.flagDiscovered?.includes('FLAG{WINLINX_WINDOWS_CANARY_TOKEN_ARMED_2026}'));
+});

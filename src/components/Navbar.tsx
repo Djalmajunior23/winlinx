@@ -47,7 +47,11 @@ export type ActiveTab =
   | 'labs' 
   | 'certificate' 
   | 'syscalls' 
-  | 'edr';
+  | 'edr'
+  | 'ebpf-tracer'
+  | 'etw-ti'
+  | 'container-runtime'
+  | 'deception';
 
 interface NavbarProps {
   activeTab: ActiveTab;

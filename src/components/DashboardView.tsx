@@ -275,6 +275,42 @@ const CAPABILITIES_CATALOG: CapabilityCard[] = [
     badge: 'SCADA & OT',
     icon: Radio,
     accentColor: 'from-orange-500/20 to-orange-950/40 text-orange-400 border-orange-500/30'
+  },
+  {
+    id: 'ebpf-tracer',
+    title: 'eBPF Kernel Probes & Subsystems (Linux)',
+    category: 'Arquitetura de SO',
+    description: 'Observabilidade sem overhead em Ring 0 com kprobes, tracepoints e BPF LSM bprm_check_security.',
+    badge: 'eBPF / KERNEL PROBES',
+    icon: Cpu,
+    accentColor: 'from-emerald-500/20 to-emerald-950/40 text-emerald-400 border-emerald-500/30'
+  },
+  {
+    id: 'etw-ti',
+    title: 'ETW-Ti Threat Intelligence (Windows NT)',
+    category: 'Ciberdefesa & SOC',
+    description: 'Telemetria de baixo nível do Kernel Windows para interceptar Direct Syscalls e injeções de memória.',
+    badge: 'ETW-TI / KERNEL TELEMETRY',
+    icon: ShieldCheck,
+    accentColor: 'from-blue-500/20 to-blue-950/40 text-blue-400 border-blue-500/30'
+  },
+  {
+    id: 'container-runtime',
+    title: 'Container Runtime Security (Falco & LSM)',
+    category: 'Cloud & Sistemas Especiais',
+    description: 'Monitoramento comportamental de pods e contêineres em tempo real com Falco, AppArmor e SELinux.',
+    badge: 'FALCO RUNTIME / LSM',
+    icon: Cloud,
+    accentColor: 'from-purple-500/20 to-purple-950/40 text-purple-400 border-purple-500/30'
+  },
+  {
+    id: 'deception',
+    title: 'Cyber Deception & Honeytokens (Canary)',
+    category: 'Ciberdefesa & SOC',
+    description: 'Implementação de iscas defensivas, honeytokens e canários em arquivos sensíveis e chaves de API.',
+    badge: 'HONEYTOKENS & DECEPTION',
+    icon: Crosshair,
+    accentColor: 'from-amber-500/20 to-amber-950/40 text-amber-400 border-amber-500/30'
   }
 ];
 

@@ -1366,6 +1366,39 @@ RELEVÂNCIA EM CIBERSEGURANÇA
         return { output: `Capabilities aplicadas: ${args.join(' ')}`, exitCode: 0 };
       }
 
+      case 'bpftool': {
+        const sub = args[0] || 'prog';
+        return {
+          output: `=== [eBPF Kernel Probes & Subsystems - BPFTOOL] ===
+ID   Type             Name             Tag              Loaded At
+42   kprobe           sys_execve_mon   d74b910e521      2026-11-27 12:00:00
+43   tracepoint       sched_process_   89fa2101cd4      2026-11-27 12:00:05
+44   lsm              bprm_check_sec   c420ab18442      2026-11-27 12:00:10
+[+] eBPF JIT Compiler: Ativo e Verificado (Zero-Overhead Ring 0 Sandbox)
+[+] Ring Buffer de eventos conectado ao pipeline de segurança.
+FLAG{WINLINX_LINUX_BPFTOOL_PROG_AUDITED_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_BPFTOOL_PROG_AUDITED_2026}'
+          }
+        };
+      }
+
+      case 'falco': {
+        return {
+          output: `=== [Falco Container & Cloud-Native Runtime Security] ===
+[ALERTA] 12:01:45.109 Notice Shell spawned in container (user=root container_id=3b8f1a container_name=k8s_backend)
+[ALERTA] 12:02:11.884 Critical Sensitive file opened for reading (file=/etc/shadow container_id=3b8f1a)
+[INFO] Driver de captura: eBPF Probe moderno (bpf_probe.o)
+[STATUS] 10 regras ativas, 2 violações de conformidade bloqueadas em runtime.
+FLAG{WINLINX_LINUX_FALCO_CONTAINER_ALERT_2026}`,
+          exitCode: 0,
+          stateChanges: {
+            flagDiscovered: 'FLAG{WINLINX_LINUX_FALCO_CONTAINER_ALERT_2026}'
+          }
+        };
+      }
+
       case 'help': {
         return {
           output: `Comandos suportados no Simulador Linux (WinLinx Enterprise):

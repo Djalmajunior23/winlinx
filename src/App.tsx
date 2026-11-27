@@ -33,6 +33,10 @@ import { EDREvasionSyscallsView } from './components/EDREvasionSyscallsView';
 import { CredentialCrackingView } from './components/CredentialCrackingView';
 import { ThreatIntelMISPView } from './components/ThreatIntelMISPView';
 import { ICSOTSecurityView } from './components/ICSOTSecurityView';
+import { EBPFKernelTracerView } from './components/eBPFKernelTracerView';
+import { ETWThreatIntelView } from './components/ETWThreatIntelView';
+import { ContainerRuntimeSecurityView } from './components/ContainerRuntimeSecurityView';
+import { HoneypotDeceptionView } from './components/HoneypotDeceptionView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
 import { LinuxSimulatorEngine } from './core/linuxEngine';
@@ -330,6 +334,34 @@ export function App() {
 
         {activeTab === 'ics-ot' && (
           <ICSOTSecurityView />
+        )}
+
+        {activeTab === 'ebpf-tracer' && (
+          <EBPFKernelTracerView
+            onCaptureFlag={handleCaptureFlag}
+            onRecordForensicLogs={handleRecordForensicLogs}
+          />
+        )}
+
+        {activeTab === 'etw-ti' && (
+          <ETWThreatIntelView
+            onCaptureFlag={handleCaptureFlag}
+            onRecordForensicLogs={handleRecordForensicLogs}
+          />
+        )}
+
+        {activeTab === 'container-runtime' && (
+          <ContainerRuntimeSecurityView
+            onCaptureFlag={handleCaptureFlag}
+            onRecordForensicLogs={handleRecordForensicLogs}
+          />
+        )}
+
+        {activeTab === 'deception' && (
+          <HoneypotDeceptionView
+            onCaptureFlag={handleCaptureFlag}
+            onRecordForensicLogs={handleRecordForensicLogs}
+          />
         )}
 
         {activeTab === 'threat-injector' && (

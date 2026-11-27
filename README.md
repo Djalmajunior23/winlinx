@@ -190,6 +190,28 @@
   - Injeção de pacotes `Force Single Coil` (Função 05) causando sobrepressão de 14.8 Bar em turbinas industriais (estilo *Stuxnet*).
   - Extração forense de firmware IoT com simulador de `binwalk` extraindo sistemas de arquivos SquashFS (`FLAG{WINLINX_ICS_SCADA_MODBUS_EXPLOITED_2026}`).
 
+### 26. Observabilidade & Probes de Kernel com eBPF (Linux)
+- **Sondagem de Baixo Nível sem Sobrecarga:**
+  - Carregamento de programas eBPF em tempo real via `bpftool` e verificação de bytecode pelo JIT verifier em Ring 0.
+  - Inserção de `kprobes` (`sys_execve`), `tracepoints` (`sched_process_exec`) e filtros em nível de socket (`sockops`) contra C2.
+  - Mitigação preventiva via **BPF LSM** (`bprm_check_security`) impedindo a execução de binários não autorizados (`FLAG{WINLINX_EBPF_KERNEL_TRACER_ARMED_2026}`).
+
+### 27. Event Tracing for Windows - Threat Intelligence (ETW-Ti)
+- **Telemetria de Kernel NT contra Evasão:**
+  - Interceptação de transições de privilégios e alocações de memória remota sem depender de ganchos em DLLs de User-Mode (`ntdll.dll`).
+  - Rastreamento dos opcodes `KERNEL_THREATINT_ALLOCVM_REMOTE` e detecção de Direct Syscalls via registradores de modelo específico (MSR LSTAR).
+  - Controlador `logman` para orquestração de sessões de telemetria em tempo real (`FLAG{WINLINX_ETW_TI_KERNEL_INJECTION_DETECTED_2026}`).
+
+### 28. Segurança em Tempo Real de Contêineres (Falco & LSM)
+- **Defesa Comportamental Cloud-Native:**
+  - Motor de regras comportamentais Falco alimentado por probes eBPF de contêineres e pods Kubernetes.
+  - Perfis mandatórios de isolamento via **AppArmor** (`docker-default-hardened`) e rotulagem MCS **SELinux** impedindo escapes e acessos a arquivos sensíveis (`FLAG{WINLINX_CONTAINER_RUNTIME_FALCO_HARDENED_2026}`).
+
+### 29. Decepção Cibernética & Honeytokens (Canary Defense)
+- **Armadilhas Ativas contra Invasores:**
+  - Implantação de tokens falsos (`HoneyToken AWS`, planilhas canário com macros de webhook e serviços isca `Cowrie SSH`).
+  - Disparo de alertas imediatos de intrusão com zero falsos-positivos ao primeiro toque não autorizado (`FLAG{WINLINX_DECEPTION_HONEYTOKEN_TRIGGERED_2026}`).
+
 ---
 
 ## 💻 Comandos e Testes Automatizados
@@ -214,7 +236,8 @@ npm test
 ✔ WinLinx Ultimate Range: Engenharia Reversa (readelf / dumpbin) & Kerberos AD (klist) (1.0ms)
 ✔ WinLinx Fase 4: Forense de Memória (Volatility), YARA Hunting e Cloud/Docker Breakout (1.0ms)
 ✔ WinLinx Fase 5: Quebra de Credenciais (Hashcat), Firmware Forensics (Binwalk) e SCADA OT (Modbus) (0.8ms)
-ℹ tests 15, pass 15, fail 0
+✔ WinLinx Fase 6: Observabilidade & Defesa de Kernel (eBPF, Falco, ETW-Ti e CanaryTokens) (0.3ms)
+ℹ tests 16, pass 16, fail 0
 ```
 ```
 
