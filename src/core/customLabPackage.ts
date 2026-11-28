@@ -29,7 +29,7 @@ function readStateCriterion(value: unknown, targetOS: LabTask['targetOS'], index
   throw new Error(`Critério de estado inválido na tarefa ${index + 1}. Confira o sistema e os parâmetros.`);
 }
 
-export function readCustomLabPackage(source: string): LabDefinition {
+export function readCustomLabPackage(source: string, stableId?: string): LabDefinition {
   if (source.length > 65_536) throw new Error('Pacote acima de 64 KiB.');
   let data;
   try { data = JSON.parse(source); } catch { throw new Error('JSON inválido.'); }
@@ -41,7 +41,7 @@ export function readCustomLabPackage(source: string): LabDefinition {
     throw new Error('Use um pacote versão 1 com título, descrição, nível e 1 a 20 tarefas.');
   }
 
-  const id = 'lab-custom-' + (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
+  const id = stableId ?? 'lab-custom-' + (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
   const taskIds = new Map<string, number>();
   for (const [index, task] of lab.tasks.entries()) {
     if (task?.id === undefined) continue;

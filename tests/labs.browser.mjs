@@ -363,6 +363,63 @@ try {
   await click('Abrir histórico de tentativas');
   await text('Cenário importado');
   await click('Exportar dossiê arquivado');
+  await click('Dashboard de Módulos');
+  await click('Lab Builder (CTF)');
+  const blueprint = {
+    version: 1,
+    lab: { title: 'Laboratório versionado', description: 'Controle de revisão', difficulty: 'Iniciante',
+      tasks: [{id: 'tarefa', title: 'Executar comando esperado', targetOS: 'linux', validationCommand: 'pwd'}] }
+  };
+  await fill('#lab-package', JSON.stringify(blueprint));
+  await click('Importar para editar');
+  await click('Salvar rascunho local');
+  await text('Rascunho salvo na biblioteca local.');
+  await reload();
+  await click('Dashboard de Módulos');
+  await click('Lab Builder (CTF)');
+  await click('Reabrir rascunho');
+  await text('Editar tarefas importadas');
+  await click('Publicar revisão local');
+  await text('Versão 1 publicada no catálogo local.');
+  await click('Executar versão 1');
+  await text('Laboratório versionado · versão 1');
+  await terminal('echo tentativa-iniciada-na-v1');
+
+  await click('Dashboard de Módulos');
+  await click('Lab Builder (CTF)');
+  await fill('#builder-task-0', JSON.stringify({ ...blueprint.lab.tasks[0], validationCommand: 'whoami' }));
+  await click('Publicar revisão local');
+  await text('Versão 2 publicada no catálogo local.');
+  await click('Executar versão 1');
+  await text('Laboratório versionado · versão 1');
+  await terminal('whoami');
+  await text('Tentativa atual: 0/1');
+  await terminal('pwd');
+  await text('Tentativa atual: 1/1');
+  await text('Dossiê guardado no histórico deste navegador.');
+  await evaluate(`(() => {
+    const create = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = blob => {
+      window.libraryExport = blob.text().then(JSON.parse);
+      return create(blob);
+    };
+  })()`);
+  await click('Exportar evidências da tentativa');
+  const libraryReport = (await send('Runtime.evaluate', {
+    expression: 'window.libraryExport', awaitPromise: true, returnByValue: true
+  })).result.value;
+  assert.equal(libraryReport.publication.version, 1);
+  assert.ok(libraryReport.logs.some(log => log.commandLine?.includes('tentativa-iniciada-na-v1')));
+
+  await click('Dashboard de Módulos');
+  await click('Lab Builder (CTF)');
+  await click('Executar versão 2');
+  await text('Laboratório versionado · versão 2');
+  await text('Tentativa atual: 0/1');
+  await terminal('pwd');
+  await text('Tentativa atual: 0/1');
+  await terminal('whoami');
+  await text('Tentativa atual: 1/1');
   assert.deepEqual(errors, []);
   console.log('Lab 02: evidência, rejeição, contenção, isolamento, retomada e reset verificados.');
 } finally {

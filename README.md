@@ -335,3 +335,10 @@ Teste a revisão em uma sessão isolada antes de exportar o JSON.
 O **Histórico de tentativas** usa IndexedDB para consultar, buscar e exportar
 dossiês de laboratórios concluídos no mesmo navegador. Os dossiês continuam
 disponíveis após fechar a aba enquanto os dados do site forem mantidos.
+
+A **Biblioteca de laboratórios** permite salvar e reabrir rascunhos no Lab
+Builder. **Publicar revisão local** cria uma nova versão sem alterar as
+revisões anteriores. Ao escolher uma versão no catálogo, o WinLinx retoma
+sua tentativa naquela aba ou cria uma específica para a revisão escolhida.
+O dossiê informa o projeto, a versão e a data de publicação. A biblioteca
+fica no IndexedDB do navegador, junto ao armazenamento do site.

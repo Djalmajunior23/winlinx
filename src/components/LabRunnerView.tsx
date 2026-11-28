@@ -48,8 +48,8 @@ export function LabRunnerView({
     const attemptId = session.id;
     setArchiveStatus({ attemptId, status: 'saving' });
     try {
-      await saveAttempt({ attemptId, title: currentLab.title, finishedAt: new Date().toISOString(),
-        report: structuredClone(buildAttemptReport(currentLab.id, session)) });
+      await saveAttempt({ attemptId, title: currentLab.publication ? `${currentLab.title} · v${currentLab.publication.version}` : currentLab.title, finishedAt: new Date().toISOString(),
+        report: structuredClone(buildAttemptReport(currentLab.id, session, currentLab.publication)) });
       setArchiveStatus({ attemptId, status: 'saved' });
     } catch {
       setArchiveStatus({ attemptId, status: 'error' });
@@ -155,7 +155,7 @@ export function LabRunnerView({
               ) : (
                 <span className="w-2 h-2 rounded-full bg-slate-600" />
               )}
-              <span>{lab.title.split(':')[0]}</span>
+              <span>{lab.title.split(':')[0]}{lab.publication && ` · v${lab.publication.version}`}</span>
               <span className="text-[10px] px-1.5 py-0.2 bg-slate-800 rounded text-slate-400 font-mono">
                 {completedCount}/{lab.tasks.length}
               </span>
@@ -180,7 +180,7 @@ export function LabRunnerView({
               </div>
 
               <h2 className="text-lg font-bold text-slate-100">
-                {currentLab.title}
+                {currentLab.title}{currentLab.publication && ` · versão ${currentLab.publication.version}`}
               </h2>
               <p className="text-xs text-slate-300">
                 {currentLab.description}
@@ -229,7 +229,7 @@ export function LabRunnerView({
               </div>
 
               <p className="text-xs text-slate-400">Histórico: {currentLab.tasks.filter(task => completedTasks.has(task.id)).length}/{currentLab.tasks.length} · Tentativa atual: {labCompletedTasks}/{currentLab.tasks.length}</p>
-              <button type="button" className="text-xs text-cyan-300" onClick={() => downloadAttemptReport(buildAttemptReport(currentLab.id, session))}>Exportar evidências da tentativa</button>
+              <button type="button" className="text-xs text-cyan-300" onClick={() => downloadAttemptReport(buildAttemptReport(currentLab.id, session, currentLab.publication))}>Exportar evidências da tentativa</button>
               <div className="flex flex-wrap gap-3 text-xs text-cyan-300">
                 <button type="button" onClick={() => onOpenTool('firewall')}>Firewall da sessão</button>
                 <button type="button" onClick={() => onOpenTool('security-audit')}>Auditoria da sessão</button>

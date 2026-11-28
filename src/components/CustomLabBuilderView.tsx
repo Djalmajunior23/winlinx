@@ -1,5 +1,6 @@
+import { openPublishedRevision, readProjects, writeProject, type LabProject } from '../core/labLibrary';
 import { readCustomLabPackage } from '../core/customLabPackage';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   FolderGit2, 
   Plus, 
@@ -74,39 +75,97 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
 
   const [editingTasks, setEditingTasks] = useState<string[] | null>(null);
   const [taskError, setTaskError] = useState<{ index: number; message: string } | null>(null);
+  const [projects, setProjects] = useState<LabProject[]>([]);
+  const [projectId, setProjectId] = useState<string>();
+  const [libraryMessage, setLibraryMessage] = useState('');
+  const [libraryError, setLibraryError] = useState('');
+  const [writingProject, setWritingProject] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    readProjects().then(items => {
+      if (active) setProjects(previous => [...items.filter(item => !previous.some(saved => saved.id === item.id)), ...previous]);
+    }).catch(() => {
+      if (active) setLibraryError('Não foi possível carregar a biblioteca local.');
+    });
+    return () => { active = false; };
+  }, []);
+
+  const loadEditor = (source: string, existingProjectId?: string) => {
+    const { lab } = JSON.parse(source);
+    setLabTitle(lab.title);
+    setLabDescription(lab.description);
+    setDifficulty(lab.difficulty);
+    const taken = new Set(lab.tasks.map((task: LabTask) => task.id).filter(Boolean));
+    setEditingTasks(lab.tasks.map((task: Partial<LabTask>, index: number) => {
+      let id = task.id ?? `tarefa-${index + 1}`;
+      while (!task.id && taken.has(id)) id += '-nova';
+      taken.add(id);
+      return JSON.stringify({ ...task, id }, null, 2);
+    }));
+    setProjectId(existingProjectId);
+    setJsonExport(source);
+    setPackageError('');
+    setTaskError(null);
+  };
+
   const handleImportForEditing = () => {
     try {
       readCustomLabPackage(jsonExport);
-      const { lab } = JSON.parse(jsonExport);
-      setLabTitle(lab.title);
-      setLabDescription(lab.description);
-      setDifficulty(lab.difficulty);
-      const taken = new Set(lab.tasks.map((task: LabTask) => task.id).filter(Boolean));
-      setEditingTasks(lab.tasks.map((task: Partial<LabTask>, index: number) => {
-        let id = task.id ?? `tarefa-${index + 1}`;
-        while (!task.id && taken.has(id)) id += '-nova';
-        taken.add(id);
-        return JSON.stringify({ ...task, id }, null, 2);
-      }));
-      setPackageError('');
-      setTaskError(null);
+      loadEditor(jsonExport);
     } catch (error) {
       setPackageError((error as Error).message);
     }
   };
 
-  const compileEdition = (preview: boolean) => {
-    if (!editingTasks) return;
+  const editedSource = () => {
     setTaskError(null);
-    setPackageError('');
+    if (!editingTasks) return undefined;
     const tasks = [];
     for (const [index, source] of editingTasks.entries()) {
-      try { tasks.push(JSON.parse(source)); } catch {
+      try {
+        const task = JSON.parse(source);
+        if (!task || typeof task !== 'object' || Array.isArray(task)) throw new Error();
+        tasks.push(task);
+      } catch {
         setTaskError({ index, message: 'JSON da tarefa inválido.' });
-        return;
+        return undefined;
       }
     }
-    const source = makePackage(tasks);
+    return makePackage(tasks);
+  };
+
+  const formSource = () => {
+    const draft = currentTask();
+    const hasDraft = draft.title?.trim() || draft.validationCommand?.trim() || draft.verify ||
+      draft.expectedOutputSubstring || draft.flagReward || draft.evidence;
+    return makePackage(hasDraft ? [...additionalTasks, draft] : additionalTasks);
+  };
+
+  const storeInLibrary = async (publish: boolean) => {
+    if (writingProject) return;
+    setLibraryError('');
+    setLibraryMessage('');
+    const source = editingTasks ? editedSource() : formSource();
+    if (!source) return;
+    setWritingProject(true);
+    try {
+      const project = await writeProject(projectId, labTitle.trim() || 'Laboratório sem título', source, publish);
+      setProjectId(project.id);
+      setProjects(previous => [...previous.filter(item => item.id !== project.id), project]);
+      setJsonExport(source);
+      setLibraryMessage(publish ? `Versão ${project.revisions.at(-1)?.version} publicada no catálogo local.` : 'Rascunho salvo na biblioteca local.');
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : 'Não foi possível gravar na biblioteca local.');
+    } finally {
+      setWritingProject(false);
+    }
+  };
+
+  const compileEdition = (preview: boolean) => {
+    setPackageError('');
+    const source = editedSource();
+    if (!source) return;
     try {
       const lab = readCustomLabPackage(source);
       setJsonExport(source);
@@ -120,9 +179,7 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
   };
 
   const handleGenerateJSON = () => {
-    const draft = currentTask();
-    const hasDraft = draft.title?.trim() || draft.validationCommand?.trim() || draft.verify || draft.expectedOutputSubstring || draft.flagReward || draft.evidence;
-    const source = makePackage(hasDraft ? [...additionalTasks, draft] : additionalTasks);
+    const source = formSource();
     try {
       readCustomLabPackage(source);
       setPackageError('');
@@ -149,6 +206,46 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
 
   return (
     <div className="space-y-6 text-xs">
+      <section className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <h3 className="text-sm font-semibold text-slate-100">Biblioteca de laboratórios</h3>
+        <div className="flex flex-wrap gap-4 text-purple-300">
+          <button type="button" disabled={writingProject} onClick={() => void storeInLibrary(false)}>Salvar rascunho local</button>
+          <button type="button" disabled={writingProject} onClick={() => void storeInLibrary(true)}>Publicar revisão local</button>
+        </div>
+        {libraryMessage && <p role="status" className="text-emerald-300">{libraryMessage}</p>}
+        {libraryError && <p role="alert" className="text-amber-300">{libraryError}</p>}
+        {projects.length > 0 && (
+          <ul className="space-y-3">
+            {projects.map(project => (
+              <li key={project.id} className="space-y-2 border-t border-slate-800 pt-3">
+                <p className="font-semibold text-slate-200">{project.title}{project.id === projectId && ' · Em edição'}</p>
+                <button type="button" className="text-purple-300" disabled={writingProject} onClick={() => {
+                  try {
+                    loadEditor(project.draft, project.id);
+                    setLibraryMessage('');
+                    setLibraryError('');
+                  } catch {
+                    setLibraryError('Não foi possível abrir o rascunho salvo.');
+                  }
+                }}>Reabrir rascunho</button>
+                {project.revisions.length > 0 && (
+                  <ul className="flex flex-wrap gap-3 text-cyan-300">
+                    {[...project.revisions].reverse().map(revision => (
+                      <li key={revision.version}>
+                        <button type="button" onClick={() => {
+                          try { onLoadCustomLab?.(openPublishedRevision(project.id, revision)); } catch {
+                            setLibraryError('Não foi possível abrir a revisão publicada.');
+                          }
+                        }}>Executar versão {revision.version}</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       {/* Cabeçalho */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex items-center space-x-3">

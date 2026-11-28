@@ -170,6 +170,7 @@ export interface LabTask {
 }
 
 export interface LabDefinition {
+  publication?: { projectId: string; version: number; publishedAt: string };
   id: string;
   moduleSlug: string;
   title: string;

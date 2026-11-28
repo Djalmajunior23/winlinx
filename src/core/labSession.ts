@@ -2,7 +2,7 @@ import { assessInboundTcp } from './networkDefense';
 import { createInitialLinuxFS, createInitialWindowsFS } from './defaultFileSystem';
 import { LinuxSimulatorEngine } from './linuxEngine';
 import { WindowsSimulatorEngine } from './windowsEngine';
-import type { CommandResult, ForensicLogRecord, LabTask, OSType } from '../types/simulator';
+import type { CommandResult, ForensicLogRecord, LabDefinition, LabTask, OSType } from '../types/simulator';
 
 export function createLabSession() {
   return {
@@ -54,9 +54,9 @@ export function executeLabCommand(labId: string, session: LabSession, os: OSType
   return result;
 }
 
-export function buildAttemptReport(labId: string, session: LabSession) {
+export function buildAttemptReport(labId: string, session: LabSession, publication?: LabDefinition['publication']) {
   return {
-    version: 1, labId, attemptId: session.id, startedAt: session.startedAt,
+    version: 1, labId, publication, attemptId: session.id, startedAt: session.startedAt,
     completedTasks: [...session.completed], submittedEvidence: Object.fromEntries(session.answers),
     logs: session.logs
   };
