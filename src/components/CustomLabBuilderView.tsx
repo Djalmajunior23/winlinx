@@ -1,3 +1,4 @@
+import { readCustomLabPackage } from '../core/customLabPackage';
 import React, { useState } from 'react';
 import { 
   FolderGit2, 
@@ -35,38 +36,44 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
   const [jsonExport, setJsonExport] = useState<string>('');
   const [copied, setCopied] = useState(false);
 
+  const [additionalTasks, setAdditionalTasks] = useState<Partial<LabTask>[]>([]);
+  const [packageError, setPackageError] = useState('');
+  const [evidenceLabel, setEvidenceLabel] = useState('');
+  const [evidenceValue, setEvidenceValue] = useState('');
+
+  const currentTask = () => ({
+    title: taskTitle, targetOS, validationCommand: validationCmd,
+    expectedOutputSubstring: expectedOutput.trim() || undefined,
+    flagReward: flagReward.trim() || undefined,
+    evidence: evidenceLabel.trim() || evidenceValue.trim()
+      ? [{ label: evidenceLabel, expected: evidenceValue }]
+      : undefined
+  });
+
+  const makePackage = (tasks: Partial<LabTask>[]) => JSON.stringify({
+    version: 1,
+    lab: { title: labTitle, description: labDescription, difficulty, tasks }
+  }, null, 2);
+
   const handleGenerateJSON = () => {
-    const customLab: LabDefinition = {
-      id: `lab-custom-${Date.now()}`,
-      moduleSlug: 'custom-labs',
-      title: labTitle,
-      difficulty,
-      category: 'Hardening',
-      durationMinutes: 30,
-      description: labDescription,
-      realWorldScenario: labDescription,
-      mitreTechniques: [{ id: 'T1057', name: 'Process Discovery' }],
-      learningGoals: ['Identificação de anomalias', 'Remediação em linha de comando'],
-      tasks: [
-        {
-          id: `task-custom-1`,
-          title: taskTitle,
-          instructions: `Execute o comando de remediação para concluir o objetivo.`,
-          targetOS,
-          objective: taskTitle,
-          hint: `Utilize o comando correspondente para neutralizar o alvo.`,
-          validationCommand: validationCmd,
-          expectedOutputSubstring: expectedOutput,
-          flagReward
-        }
-      ]
-    };
+    const draft = currentTask();
+    const hasDraft = draft.title.trim() || draft.validationCommand.trim() || draft.expectedOutputSubstring || draft.flagReward || draft.evidence;
+    const source = makePackage(hasDraft ? [...additionalTasks, draft] : additionalTasks);
+    try {
+      readCustomLabPackage(source);
+      setPackageError('');
+      setJsonExport(source);
+    } catch (error) {
+      setPackageError((error as Error).message);
+    }
+  };
 
-    const str = JSON.stringify(customLab, null, 2);
-    setJsonExport(str);
-
-    if (onLoadCustomLab) {
-      onLoadCustomLab(customLab);
+  const handlePreview = () => {
+    try {
+      onLoadCustomLab?.(readCustomLabPackage(jsonExport));
+      setPackageError('');
+    } catch (error) {
+      setPackageError((error as Error).message);
     }
   };
 
@@ -92,7 +99,7 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
               </span>
             </h2>
             <p className="text-slate-400 mt-1 max-w-2xl">
-              Crie desafios práticos personalizados para suas aulas e treinamentos. Defina tarefas, comandos esperados e flags de recompensa, exportando tudo em pacotes portáveis JSON compatíveis com o <strong>CiberLab Academy</strong>!
+              Crie desafios práticos personalizados para suas aulas e treinamentos. Defina tarefas, comandos e evidências. Importe ou teste o pacote JSON em uma sessão isolada do WinLinx.
             </p>
           </div>
         </div>
@@ -191,6 +198,30 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
               </div>
             </div>
 
+            <div className="grid gap-2 sm:grid-cols-2 text-xs">
+              <label>Campo de evidência (opcional)
+                <input className="w-full bg-slate-950 border border-slate-800 rounded p-2" value={evidenceLabel} onChange={event => setEvidenceLabel(event.target.value)} />
+              </label>
+              <label>Resposta esperada
+                <input className="w-full bg-slate-950 border border-slate-800 rounded p-2" value={evidenceValue} onChange={event => setEvidenceValue(event.target.value)} />
+              </label>
+            </div>
+            {additionalTasks.map((task, index) => (
+              <div key={index} className="flex justify-between text-xs">
+                <span>{index + 1}. {task.title}</span>
+                <button type="button" onClick={() => setAdditionalTasks(tasks => tasks.filter((_, i) => index !== i))}>Remover</button>
+              </div>
+            ))}
+            <button type="button" className="text-xs text-purple-300" disabled={additionalTasks.length >= 19}
+              onClick={() => {
+                setAdditionalTasks(tasks => [...tasks, currentTask()]);
+                setTaskTitle('');
+                setValidationCmd('');
+                setExpectedOutput('');
+                setFlagReward('');
+                setEvidenceLabel('');
+                setEvidenceValue('');
+              }}>Adicionar tarefa e editar a próxima</button>
             <button
               onClick={handleGenerateJSON}
               className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition flex items-center justify-center space-x-2 shadow-lg shadow-purple-600/20"
@@ -219,9 +250,13 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
             )}
           </div>
 
-          <pre className="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 h-96 overflow-y-auto whitespace-pre-wrap">
-            {jsonExport || '// Clique em "Compilar e Exportar Pacote de Laboratório" para gerar o schema JSON portátil.'}
-          </pre>
+          <label className="block text-xs text-slate-300" htmlFor="lab-package">Pacote JSON versão 1</label>
+          <textarea id="lab-package" value={jsonExport} maxLength={65_536}
+            onChange={event => setJsonExport(event.target.value)}
+            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs h-80"
+            placeholder="Gere um pacote ou cole um JSON para importar." />
+          <button type="button" onClick={handlePreview} className="text-sm text-purple-300">Importar e abrir prévia</button>
+          {packageError && <p role="alert" className="text-xs text-amber-300">{packageError}</p>}
         </div>
       </div>
     </div>

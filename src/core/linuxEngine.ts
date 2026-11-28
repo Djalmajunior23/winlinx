@@ -22,6 +22,17 @@ export class LinuxSimulatorEngine {
     };
   }
 
+  private pythonSetuidCapability = true;
+
+  public hasPythonSetuidCapability(): boolean {
+    return this.pythonSetuidCapability;
+  }
+
+  public requiresSudoPasswordForStudent(): boolean {
+    const policy = this.getNodeByPath('/etc/sudoers')?.content ?? '';
+    return /^aluno ALL=\(ALL\) PASSWD:/m.test(policy) && !/^aluno .*NOPASSWD:/m.test(policy);
+  }
+
   public hasFindSetuid(): boolean {
     const permissions = this.getNodeByPath('/bin/find')?.permissions ?? '';
     return /^[0-7]{4}$/.test(permissions)
@@ -1377,18 +1388,27 @@ RELEVÂNCIA EM CIBERSEGURANÇA
         };
       }
 
+      case 'visudo': {
+        const policy = this.getNodeByPath('/etc/sudoers');
+        if (args.join(' ') !== '--require-password aluno' || !policy?.content || this.currentUser !== 'root') {
+          return { output: 'Simulação visudo: use sudo visudo --require-password aluno.', exitCode: 1 };
+        }
+        policy.content = policy.content.replace(/^(aluno ALL=\(ALL\) )NOPASSWD:/m, '$1PASSWD:');
+        return { output: 'Política sudoers simulada atualizada para exigir senha da conta aluno.', exitCode: 0 };
+      }
+
       case 'getcap': {
         if (args.includes('-r') || args[0] === '/') {
           return {
-            output: `/usr/bin/python3.11 = cap_setuid+ep\n/usr/bin/ping = cap_net_raw+ep`,
+            output: (this.pythonSetuidCapability ? '/usr/bin/python3.11 = cap_setuid+ep\n' : '') + '/usr/bin/ping = cap_net_raw+ep',
             exitCode: 0,
-            stateChanges: {
+            stateChanges: this.pythonSetuidCapability ? {
               flagDiscovered: 'FLAG{WINLINX_LINUX_CAPABILITIES_DISCOVERED_2026}'
-            }
+            } : undefined
           };
         }
         const target = args[0] || '';
-        if (target.includes('python')) {
+        if (target === '/usr/bin/python3.11' && this.pythonSetuidCapability) {
           return { output: `${target} = cap_setuid+ep`, exitCode: 0 };
         }
         return { output: `${target}: nenhuma capability especial configurada`, exitCode: 0 };
@@ -1396,7 +1416,11 @@ RELEVÂNCIA EM CIBERSEGURANÇA
 
       case 'setcap': {
         if (args.includes('-r')) {
-          const target = args.find(a => !a.startsWith('-')) || '';
+          const target = args[1];
+          if (target !== '/usr/bin/python3.11' || args.length !== 2) {
+            return { output: 'setcap: alvo de remediação desconhecido no cenário.', exitCode: 1 };
+          }
+          this.pythonSetuidCapability = false;
           return {
             output: `[SUCESSO] Capabilities removidas de '${target}'. Risco de elevação de privilégio eliminado!`,
             exitCode: 0,

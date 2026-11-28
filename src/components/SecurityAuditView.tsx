@@ -16,32 +16,33 @@ import {
 import { OSType, SecurityFinding } from '../types/simulator';
 
 interface SecurityAuditViewProps {
+  scenarioTitle?: string;
   onExecuteRemediation?: (os: OSType, command: string) => void;
   linuxFirewallBlocked: boolean;
   windowsFirewallBlocked: boolean;
   linuxSuidVulnerable: boolean;
   windowsDaclVulnerable: boolean;
-  flagsFound?: string[];
+  isLinuxCapFixed: boolean;
+  isLinuxMalwareKilled: boolean;
+  isWinLsassHardened: boolean;
+  isUpdaterPathFixed: boolean;
 }
 
 export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
+  scenarioTitle,
   onExecuteRemediation,
   linuxFirewallBlocked,
   windowsFirewallBlocked,
   linuxSuidVulnerable,
   windowsDaclVulnerable,
-  flagsFound = []
+  isLinuxCapFixed, isLinuxMalwareKilled, isWinLsassHardened, isUpdaterPathFixed
 }) => {
   const [activeOSFilter, setActiveOSFilter] = useState<'all' | 'linux' | 'windows'>('all');
   const [selectedSeverity, setSelectedSeverity] = useState<'all' | 'CRITICAL' | 'HIGH' | 'MEDIUM'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  const isLinuxCapFixed = flagsFound.includes('FLAG{WINLINX_LINUX_CAPABILITIES_HARDENED_2026}');
-  const isLinuxMalwareKilled = flagsFound.includes('FLAG{WINLINX_LINUX_MALICIOUS_PROCESS_KILLED_1337}');
   
-  const isWinLsassHardened = flagsFound.includes('FLAG{WINLINX_WINDOWS_LSA_RUNASPPL_ACTIVATED_2026}');
-  const isWinMalwareStopped = flagsFound.includes('FLAG{WINLINX_WINDOWS_MALICIOUS_PROCESS_TERMINATED_4992}');
 
   const findings: SecurityFinding[] = [
     {
@@ -116,8 +117,8 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
       targetResource: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\WinVulnerableUpdater',
       description: 'O caminho do serviço "C:\\Program Files\\Custom App\\service.exe" não contém aspas envolventes. O Windows tenta executar sequencialmente C:\\Program.exe antes do executável real.',
       exploitationVector: 'Depósito de C:\\Program.exe malicioso para obter execução de código no contexto de NT AUTHORITY\\SYSTEM.',
-      remediationCommand: 'sc config WinVulnerableUpdater binPath= "\\"C:\\Program Files\\Custom App\\service.exe\\""',
-      isRemediated: false
+      remediationCommand: `sc config WinVulnerableUpdater binPath= '"C:\\Program Files\\Custom App\\service.exe"'`,
+      isRemediated: isUpdaterPathFixed
     },
     {
       id: 'VULN-WIN-002',
@@ -191,6 +192,7 @@ export const SecurityAuditView: React.FC<SecurityAuditViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {scenarioTitle && <p className="text-xs text-slate-400">Cenário em auditoria · {scenarioTitle}</p>}
       {/* Banner Principal */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

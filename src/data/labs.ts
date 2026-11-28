@@ -89,6 +89,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Liste todos os processos em execução e filtre por processos executando a partir do diretório /tmp.',
         objective: 'Localizar o processo kworker_rev rodando a partir de /tmp/.hidden.',
         hint: 'Execute: ps aux | grep /tmp',
+        evidence: [{"label": "PID suspeito", "expected": "1337"}, {"label": "Nome do processo", "expected": "kworker_rev"}],
         validationCommand: 'ps aux | grep /tmp',
         expectedOutputSubstring: 'kworker_rev',
         flagReward: 'FLAG{WINLINX_LINUX_MALICIOUS_PROCESS_SPOTTED}'
@@ -100,6 +101,8 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Verifique quais portas e conexões ativas estão associadas ao PID suspeito (1337).',
         objective: 'Usar ss ou netstat para identificar a porta 4444 e IP remoto.',
         hint: 'Execute: ss -tulpn ou netstat -tulpn',
+        evidence: [{"label": "Porta TCP em escuta", "expected": "4444"}, {"label": "Processo associado", "expected": "kworker_rev"}],
+        alternativeCommands: ['netstat -tulpn'],
         validationCommand: 'ss -tulpn',
         expectedOutputSubstring: 'kworker_rev',
         flagReward: 'FLAG{WINLINX_REVERSE_SHELL_ESTABLISHED_PORT4444}'
@@ -111,9 +114,30 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Execute o comando netstat no PowerShell para verificar portas em estado LISTENING e identifique uma porta não padrão.',
         objective: 'Localizar a porta 8089 vinculada ao PID 4992.',
         hint: 'Execute: netstat -ano',
+        evidence: [{"label": "Porta TCP em escuta", "expected": "8089"}, {"label": "PID associado", "expected": "4992"}],
         validationCommand: 'netstat -ano',
         expectedOutputSubstring: '8089',
         flagReward: 'FLAG{WINLINX_WINDOWS_SUSPICIOUS_PORT_8089}'
+      },
+      {
+        id: "task-proc-linux-contain",
+        title: "Tarefa 4: Conter o tráfego no Linux",
+        targetOS: "linux",
+        instructions: "Verifique a porta antes da contenção, aplique o bloqueio de entrada e repita a sonda.",
+        objective: "A porta 4444/TCP deve ficar filtrada.",
+        hint: "Execute ufw deny 4444 e verifique o estado.",
+        requires: ["task-proc-linux-ps", "task-proc-linux-net"],
+        verify: "linux-tcp-filtered"
+      },
+      {
+        id: "task-proc-win-contain",
+        title: "Tarefa 5: Conter o tráfego no Windows",
+        targetOS: "windows",
+        instructions: "Verifique a porta antes da contenção, aplique o bloqueio e repita a sonda.",
+        objective: "A porta 8089/TCP deve ficar filtrada.",
+        hint: "Execute netsh advfirewall firewall add rule name=\"Block 8089\" dir=in action=block protocol=TCP localport=8089 e verifique o estado.",
+        requires: ["task-proc-win-ps"],
+        verify: "windows-tcp-filtered"
       }
     ]
   },
@@ -143,6 +167,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Exiba o conteúdo do arquivo /etc/crontab e identifique scripts agendados com privilégios de root.',
         objective: 'Identificar a chamada para o script /opt/scripts/backup.sh a cada 10 minutos.',
         hint: 'Execute: cat /etc/crontab',
+        evidence: [{"label": "Caminho do script agendado", "expected": "/opt/scripts/backup.sh"}, {"label": "Conta que executa o script", "expected": "root"}],
         validationCommand: 'cat /etc/crontab',
         expectedOutputSubstring: '/opt/scripts/backup.sh',
         flagReward: 'FLAG{WINLINX_LINUX_CRON_PERSISTENCE_AUDITED}'
@@ -154,9 +179,21 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Consulte a configuração do serviço WinVulnerableUpdater usando o utilitário sc qc.',
         objective: 'Evidenciar o caminho binário sem aspas "C:\\Program Files\\Custom App\\service.exe".',
         hint: 'Execute: sc qc WinVulnerableUpdater',
+        evidence: [{"label": "Nome do serviço", "expected": "WinVulnerableUpdater"}, {"label": "Conta configurada", "expected": "LocalSystem"}],
+        alternativeCommands: ['sc.exe qc WinVulnerableUpdater'],
         validationCommand: 'sc qc WinVulnerableUpdater',
         expectedOutputSubstring: 'C:\\Program Files\\Custom App\\service.exe',
         flagReward: 'FLAG{WINLINX_UNQUOTED_PATH_IDENTIFIED}'
+      },
+      {
+        id: "task-persist-win-fix",
+        title: "Tarefa 3: Corrigir o caminho do serviço",
+        targetOS: "windows",
+        instructions: "Proteja o caminho do executável com aspas, preservando o executável configurado. Consulte a configuração e confira se o processo do serviço segue em execução.",
+        objective: "O caminho registrado precisa conter o executável original entre aspas.",
+        hint: "Execute sc config WinVulnerableUpdater binPath= '\"C:\\Program Files\\Custom App\\service.exe\"' e confira com sc qc e sc query para o mesmo serviço.",
+        requires: ["task-persist-win-qc"],
+        verify: "windows-service-path"
       }
     ]
   },
@@ -186,6 +223,8 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Exiba o arquivo /var/log/auth.log e procure por entradas de senhas com falha (Failed password).',
         objective: 'Identificar o IP de ataque 203.0.113.55 tentando autenticar como root e admin.',
         hint: 'Execute: cat /var/log/auth.log | grep "Failed password"',
+        evidence: [{"label": "IP de origem", "expected": "203.0.113.55"}, {"label": "Conta da primeira falha", "expected": "admin"}, {"label": "Horário da primeira falha (HH:MM:SS)", "expected": "10:20:44"}],
+        alternativeCommands: ['cat /var/log/auth.log | grep "Failed password"'],
         validationCommand: 'cat /var/log/auth.log',
         expectedOutputSubstring: 'Failed password',
         flagReward: 'FLAG{WINLINX_SSH_BRUTE_FORCE_DETECTED_203.0.113.55}'
@@ -197,6 +236,8 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Consulte os logs de segurança do Windows para identificar falhas de logon (Event 4625) e atribuição de privilégios especiais (Event 4672).',
         objective: 'Identificar as falhas de autenticação vindas de 192.168.1.88.',
         hint: 'Execute: Get-EventLog -LogName Security',
+        evidence: [{"label": "IP de origem", "expected": "192.168.1.88"}, {"label": "Conta alvo", "expected": "admin_ti"}, {"label": "ID do evento de falha", "expected": "4625"}, {"label": "Horário da primeira falha (HH:MM:SS)", "expected": "10:22:13"}],
+        alternativeCommands: ['Get-EventLog -LogName Security'],
         validationCommand: 'Get-EventLog',
         expectedOutputSubstring: 'Event 4625',
         flagReward: 'FLAG{WINLINX_WINDOWS_SECURITY_LOGS_CORRELATED}'
@@ -229,6 +270,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Execute o comando whoami com o parâmetro de privilégios para inspecionar os direitos atribuídos ao token atual.',
         objective: 'Verificar os privilégios habilitados no token.',
         hint: 'Execute: whoami /priv',
+        evidence: [{"label": "Privilégio habilitado de travessia de diretório", "expected": "SeChangeNotifyPrivilege"}],
         validationCommand: 'whoami /priv',
         expectedOutputSubstring: 'SeChangeNotifyPrivilege',
         flagReward: 'FLAG{WINLINX_WINDOWS_TOKEN_PRIVILEGES_AUDITED}'
@@ -240,9 +282,30 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         instructions: 'Exiba o conteúdo de /etc/sudoers para descobrir quais comandos o usuário aluno pode executar sem senha (NOPASSWD).',
         objective: 'Identificar a permissão de restart do nginx e apt-get sem senha.',
         hint: 'Execute: cat /etc/sudoers',
+        evidence: [{"label": "Conta com regra NOPASSWD", "expected": "aluno"}, {"label": "Executável do gerenciador de pacotes autorizado", "expected": "/usr/bin/apt-get"}],
         validationCommand: 'cat /etc/sudoers',
         expectedOutputSubstring: 'NOPASSWD',
         flagReward: 'FLAG{WINLINX_LINUX_SUDOERS_MISCONFIG_AUDITED}'
+      },
+      {
+        id: "task-hard-linux-policy",
+        title: "Tarefa 3: Exigir senha para a regra sudoers",
+        targetOS: "linux",
+        instructions: "Altere a política simulada da conta aluno e verifique o resultado.",
+        objective: "A regra sudoers deve voltar a exigir senha sem remover a lista de comandos autorizados.",
+        hint: "No simulador, execute sudo visudo --require-password aluno e confira o arquivo /etc/sudoers.",
+        requires: ["task-hard-linux-sudoers"],
+        verify: "linux-sudo-policy"
+      },
+      {
+        id: "task-hard-win-ppl",
+        title: "Tarefa 4: Configurar a proteção LSA",
+        targetOS: "windows",
+        instructions: "Configure RunAsPPL no Registro virtual e verifique o valor configurado.",
+        objective: "RunAsPPL deve estar configurado como 1 no Registro simulado.",
+        hint: "Execute reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\" /v RunAsPPL /t REG_DWORD /d 1 /f.",
+        requires: ["task-hard-win-whoami"],
+        verify: "windows-ppl"
       }
     ]
   }

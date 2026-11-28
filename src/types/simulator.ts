@@ -109,6 +109,9 @@ export interface CommandResult {
 export type OperationalPosture = 'red-team' | 'blue-team';
 
 export interface ForensicLogRecord {
+  commandExitCode?: number;
+  labId?: string;
+  attemptId?: string;
   id: string;
   timestamp: string;
   os: OSType;
@@ -150,6 +153,10 @@ export interface LabTask {
   hint: string;
   validateWithEngineFlag?: boolean;
   validationCommand?: string;
+  alternativeCommands?: string[];
+  evidence?: { label: string; expected: string }[];
+  requires?: string[];
+  verify?: 'linux-tcp-filtered' | 'windows-tcp-filtered' | 'windows-service-path' | 'windows-ppl' | 'linux-sudo-policy';
   expectedOutputSubstring?: string;
   flagReward?: string;
   isCompleted?: boolean;

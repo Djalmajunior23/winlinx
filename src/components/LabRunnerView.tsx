@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-import { PRACTICAL_LABS } from '../data/labs';
-import { CommandResult, OSType, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
+import { downloadAttempt, incorrectEvidence, matchesLabObservation, verifyLabState, type LabSession } from '../core/labSession';
+import type { LabDefinition, LabTask, OSType, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 import { Terminal } from './Terminal';
-import { LinuxSimulatorEngine } from '../core/linuxEngine';
-import { WindowsSimulatorEngine } from '../core/windowsEngine';
-import { createInitialLinuxFS, createInitialWindowsFS } from '../core/defaultFileSystem';
 import { 
   Terminal as TerminalIcon, 
   CheckCircle2, 
@@ -19,106 +16,110 @@ import {
 } from 'lucide-react';
 
 interface LabRunnerViewProps {
-  activeLabId?: string;
+  activeLabId: string;
+  labs: LabDefinition[];
+  session: LabSession;
+  onOpenTool: (tab: 'firewall' | 'forensics' | 'security-audit') => void;
+  onSelectLab: (id: string) => void;
+  onResetSession: () => void;
   onTaskCompleted: (taskId: string, flag?: string) => void;
+  onLabFinished: (id: string, duration: number) => void;
   completedTasks: Set<string>;
-  permissionsSession: {
-    linux: LinuxSimulatorEngine;
-    windows: WindowsSimulatorEngine;
-  };
-  onResetPermissionsSession: () => void;
   onRecordSyscalls?: (traces: SyscallTrace[]) => void;
   onRecordEDRAlerts?: (alerts: EDRAlert[]) => void;
   onRecordForensicLogs?: (logs: ForensicLogRecord[]) => void;
 }
 
-export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
-  activeLabId,
-  onTaskCompleted,
-  completedTasks,
-  permissionsSession,
-  onResetPermissionsSession,
-  onRecordSyscalls,
-  onRecordEDRAlerts,
-  onRecordForensicLogs
-}) => {
-  const [selectedLabId, setSelectedLabId] = useState<string>(activeLabId || PRACTICAL_LABS[0].id);
-  const [activeOS, setActiveOS] = useState<OSType>(() =>
-    PRACTICAL_LABS.find(lab => lab.id === selectedLabId)?.tasks[0]?.targetOS === 'windows' ? 'windows' : 'linux'
-  );
-  const [showHintForTaskId, setShowHintForTaskId] = useState<string | null>(null);
+export function LabRunnerView({
+  activeLabId, labs, session, onOpenTool, onSelectLab, onResetSession, onTaskCompleted, onLabFinished,
+  completedTasks, onRecordSyscalls, onRecordEDRAlerts, onRecordForensicLogs
+}: LabRunnerViewProps) {
+  const currentLab = labs.find(lab => lab.id === activeLabId) ?? labs[0];
+  const [activeOS, setActiveOS] = useState<OSType>(currentLab.tasks[0]?.targetOS === 'windows' ? 'windows' : 'linux');
+  const [hint, setHint] = useState<{ id: string; level: number } | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const [, refresh] = useState(0);
+  const { linux: linuxEngine, windows: windowsEngine } = session;
 
-  const [labLinux, setLabLinux] = useState(() => new LinuxSimulatorEngine(createInitialLinuxFS()));
-  const [labWindows, setLabWindows] = useState(() => new WindowsSimulatorEngine(createInitialWindowsFS()));
-  const [, setPromptRevision] = useState(0);
-  const [terminalRevision, setTerminalRevision] = useState(0);
-
-  const currentLab = PRACTICAL_LABS.find(l => l.id === selectedLabId) || PRACTICAL_LABS[0];
-  const isPermissionsLab = currentLab.id === 'lab-permissions-dacl';
-  const linuxEngine = isPermissionsLab ? permissionsSession.linux : labLinux;
-  const windowsEngine = isPermissionsLab ? permissionsSession.windows : labWindows;
-
-  const handleResetLab = () => {
-    if (isPermissionsLab) {
-      onResetPermissionsSession();
-    } else {
-      setLabLinux(new LinuxSimulatorEngine(createInitialLinuxFS()));
-      setLabWindows(new WindowsSimulatorEngine(createInitialWindowsFS()));
-    }
-    setTerminalRevision(previous => previous + 1);
+  const recordLogs = (logs: ForensicLogRecord[]) => {
+    const tagged = logs.map(log => ({ ...log, labId: currentLab.id, attemptId: session.id }));
+    session.logs.push(...tagged);
+    onRecordForensicLogs?.(tagged);
   };
 
-  const handleExecuteCommand = (cmd: string) => {
+  const completeTask = (task: LabTask, note: string) => {
+    if (session.completed.has(task.id)) return;
+    session.completed.add(task.id);
+    setFeedback(note);
+    onTaskCompleted(task.id, task.flagReward);
+    if (currentLab.tasks.every(item => session.completed.has(item.id))) {
+      onLabFinished(currentLab.id, Math.max(0, Math.floor((Date.now() - Date.parse(session.startedAt)) / 1000)));
+    }
+    refresh(value => value + 1);
+  };
+
+  const handleExecuteCommand = (command: string) => {
     const engine = activeOS === 'linux' ? linuxEngine : windowsEngine;
-    const result: CommandResult = engine.execute(cmd);
-    setPromptRevision(previous => previous + 1);
+    const result = engine.execute(command);
+    refresh(value => value + 1);
     if (result.syscalls) onRecordSyscalls?.(result.syscalls);
     if (result.edrAlerts) onRecordEDRAlerts?.(result.edrAlerts);
-    if (result.forensicLogs) onRecordForensicLogs?.(result.forensicLogs);
+    if (result.forensicLogs) recordLogs(result.forensicLogs.map(log => ({ ...log, commandExitCode: result.exitCode })));
 
-    const res = {
-      output: result.output,
-      error: result.error,
-      exitCode: result.exitCode,
-      flag: result.stateChanges?.flagDiscovered
-    };
-    if (res.exitCode !== 0) return res;
-
-    currentLab.tasks.forEach(task => {
-      if (completedTasks.has(task.id)) return;
-
-      const isTargetOS = task.targetOS === 'both' || task.targetOS === activeOS;
-      if (!isTargetOS) return;
-
-      const command = cmd.trim().replace(/\s+/g, ' ');
-      const enteredCommand = activeOS === 'windows' ? command.toLowerCase() : command;
-      const expectedCommand = activeOS === 'windows' ? task.validationCommand?.toLowerCase() : task.validationCommand;
-      const matchesCommand = expectedCommand && (
-        enteredCommand === expectedCommand || enteredCommand.startsWith(`${expectedCommand} `)
-      );
-      const matched = task.validateWithEngineFlag
-        ? task.flagReward !== undefined && res.flag === task.flagReward
-        : matchesCommand && (!task.expectedOutputSubstring || res.output.includes(task.expectedOutputSubstring));
-
-      if (matched) {
-        onTaskCompleted(task.id, task.flagReward);
-        if (task.flagReward) {
-          res.flag = task.flagReward;
-        }
+    setFeedback(result.exitCode === 0
+      ? 'Comando executado. Confira se a saída contém a evidência pedida na tarefa.'
+      : 'O comando falhou. Confira o sistema, o alvo ou os parâmetros e tente novamente.');
+    let flag: string | undefined;
+    for (const task of currentLab.tasks) {
+      if (session.completed.has(task.id) || task.verify || !matchesLabObservation(task, activeOS, command, result)) continue;
+      if (task.evidence?.length) {
+        session.observed.add(task.id);
+        setFeedback('Fonte de evidência consultada. Registre seu achado na tarefa.');
+      } else {
+        completeTask(task, 'Objetivo confirmado no simulador.');
+        flag = task.flagReward ?? flag;
       }
-    });
+    }
 
-    return res;
+    return { ...result, flag };
   };
 
-  const labCompletedTasks = currentLab.tasks.filter(t => completedTasks.has(t.id)).length;
+  const submitEvidence = (task: LabTask, data: FormData) => {
+    if (!session.observed.has(task.id)) {
+      setFeedback('Consulte a fonte de evidência da tarefa nesta tentativa.');
+      return;
+    }
+    const answers = (task.evidence ?? []).map((_, index) => String(data.get(String(index)) ?? '').trim());
+    const incorrect = incorrectEvidence(task, answers);
+    if (incorrect.length) {
+      setFeedback(`Revise a evidência para: ${incorrect.join(', ')}.`);
+      return;
+    }
+    session.answers.set(task.id, answers);
+    completeTask(task, 'Achado confirmado com a evidência da tentativa.');
+  };
+
+  const verifyTask = (task: LabTask) => {
+    const check = verifyLabState(task, session);
+    const os = task.targetOS === 'windows' ? 'windows' : 'linux';
+    recordLogs([{
+      id: globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
+      timestamp: new Date().toISOString(), os, source: os === 'linux' ? 'audit.log' : 'Security.evtx',
+      facility: 'LAB_VERIFY', severity: check.passed ? 'INFO' : 'WARNING',
+      user: 'aluno', computer: os === 'linux' ? 'WINLINX-LNX-01' : 'WINLINX-WIN-2026', details: check.message
+    }]);
+    if (check.passed) completeTask(task, check.message);
+    else setFeedback(check.message);
+  };
+
+  const labCompletedTasks = session.completed.size;
   const isLabFullyCompleted = labCompletedTasks === currentLab.tasks.length;
 
   return (
     <div className="space-y-6">
       {/* Seletor Rápido de Labs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {PRACTICAL_LABS.map(lab => {
+        {labs.map(lab => {
           const isSelected = lab.id === currentLab.id;
           const completedCount = lab.tasks.filter(t => completedTasks.has(t.id)).length;
           const isDone = completedCount === lab.tasks.length;
@@ -126,14 +127,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
           return (
             <button
               key={lab.id}
-              onClick={() => {
-                setSelectedLabId(lab.id);
-                if (lab.tasks[0]?.targetOS === 'windows') {
-                  setActiveOS('windows');
-                } else {
-                  setActiveOS('linux');
-                }
-              }}
+              onClick={() => onSelectLab(lab.id)}
               className={`px-3 py-2 rounded-lg border text-xs font-medium whitespace-nowrap transition flex items-center space-x-2 ${
                 isSelected
                   ? 'bg-cyan-950/60 border-cyan-500 text-cyan-200'
@@ -209,7 +203,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                   Tarefas do Laboratório ({labCompletedTasks}/{currentLab.tasks.length})
                 </h3>
                 <button
-                  onClick={handleResetLab}
+                  onClick={() => { onResetSession(); setHint(null); setFeedback('Nova tentativa iniciada.'); }}
                   className="text-[11px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition"
                   title="Reiniciar máquinas para o estado inicial"
                 >
@@ -218,13 +212,21 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                 </button>
               </div>
 
+              <p className="text-xs text-slate-400">Histórico: {currentLab.tasks.filter(task => completedTasks.has(task.id)).length}/{currentLab.tasks.length} · Tentativa atual: {labCompletedTasks}/{currentLab.tasks.length}</p>
+              <button type="button" className="text-xs text-cyan-300" onClick={() => downloadAttempt(currentLab.id, session)}>Exportar evidências da tentativa</button>
+              <div className="flex flex-wrap gap-3 text-xs text-cyan-300">
+                <button type="button" onClick={() => onOpenTool('firewall')}>Firewall da sessão</button>
+                <button type="button" onClick={() => onOpenTool('security-audit')}>Auditoria da sessão</button>
+                <button type="button" onClick={() => onOpenTool('forensics')}>Logs forenses</button>
+              </div>
+              <p role="status" className="text-xs text-slate-300">{feedback}</p>
               {currentLab.tasks.map((task) => {
-                const isCompleted = completedTasks.has(task.id);
-                const isHintOpen = showHintForTaskId === task.id;
+                const isCompleted = session.completed.has(task.id);
+                const hintLevel = hint?.id === task.id ? hint.level : 0;
 
                 return (
                   <div
-                    key={task.id}
+                    key={session.id + task.id}
                     className={`p-3.5 rounded-lg border transition space-y-2 ${
                       isCompleted
                         ? 'bg-emerald-950/20 border-emerald-800/50'
@@ -259,13 +261,33 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                       </span>
                     </div>
 
+                    {!isCompleted && task.evidence?.length && (
+                      <form className="space-y-2 text-xs" onSubmit={event => {
+                        event.preventDefault();
+                        submitEvidence(task, new FormData(event.currentTarget));
+                      }}>
+                        {task.evidence.map((field, index) => (
+                          <label key={field.label} className="block text-slate-300">
+                            {field.label}
+                            <input name={String(index)} required maxLength={256}
+                              className="block w-full rounded border border-slate-700 bg-slate-900 px-2 py-1" />
+                          </label>
+                        ))}
+                        <button className="text-cyan-300" type="submit">Registrar achado</button>
+                      </form>
+                    )}
+                    {!isCompleted && task.verify && (
+                      <button type="button" className="text-xs text-cyan-300" onClick={() => verifyTask(task)}>
+                        Verificar estado do alvo
+                      </button>
+                    )}
                     <div className="pt-1 flex items-center justify-between text-[11px]">
                       <button
-                        onClick={() => setShowHintForTaskId(isHintOpen ? null : task.id)}
+                        onClick={() => setHint({ id: task.id, level: (hintLevel + 1) % 3 })}
                         className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium transition"
                       >
                         <Lightbulb className="w-3 h-3" />
-                        <span>{isHintOpen ? 'Ocultar dica' : 'Ver dica de comando'}</span>
+                        <span>{['Ver orientação', 'Ver dica de comando', 'Ocultar dica'][hintLevel]}</span>
                       </button>
 
                       {task.flagReward && isCompleted && (
@@ -276,9 +298,9 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
                       )}
                     </div>
 
-                    {isHintOpen && (
+                    {hintLevel > 0 && (
                       <div className="p-2 rounded bg-amber-950/30 border border-amber-800/40 text-[11px] text-amber-200 font-mono">
-                        {task.hint}
+                        {hintLevel === 1 ? task.objective : task.hint}
                       </div>
                     )}
                   </div>
@@ -337,7 +359,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
           <div className="h-[520px]">
             {activeOS === 'linux' ? (
               <Terminal
-                key={`${currentLab.id}-${activeOS}-${terminalRevision}`}
+                key={`${currentLab.id}-${activeOS}-${session.id}`}
                 osType="linux"
                 currentDir={linuxEngine.getCurrentDir()}
                 currentUser={linuxEngine.getCurrentUser()}
@@ -348,7 +370,7 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
               />
             ) : (
               <Terminal
-                key={`${currentLab.id}-${activeOS}-${terminalRevision}`}
+                key={`${currentLab.id}-${activeOS}-${session.id}`}
                 osType="windows"
                 currentDir={windowsEngine.getCurrentDir()}
                 currentUser={windowsEngine.getCurrentUser()}
@@ -370,4 +392,4 @@ export const LabRunnerView: React.FC<LabRunnerViewProps> = ({
       </div>
     </div>
   );
-};
+}

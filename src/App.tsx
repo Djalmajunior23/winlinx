@@ -1,11 +1,10 @@
+import { createLabSession, type LabSession } from './core/labSession';
+import type { LabDefinition } from './types/simulator';
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Navbar, ActiveTab } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { PRACTICAL_LABS } from './data/labs';
 import { SyscallTrace, EDRAlert, ForensicLogRecord, OperationalPosture, OSType } from './types/simulator';
-import { LinuxSimulatorEngine } from './core/linuxEngine';
-import { WindowsSimulatorEngine } from './core/windowsEngine';
-import { createInitialLinuxFS, createInitialWindowsFS } from './core/defaultFileSystem';
 import { WinLinxEventBridge } from './core/eventBridge';
 import { Shield, ExternalLink, Terminal, Flame, BookOpen } from 'lucide-react';
 
@@ -48,20 +47,18 @@ const HoneypotDeceptionView = lazy(() => import('./components/HoneypotDeceptionV
 const HypervisorVBSView = lazy(() => import('./components/HypervisorVBSView').then(module => ({ default: module.HypervisorVBSView })));
 const ZeroTrustKernelGuardView = lazy(() => import('./components/ZeroTrustKernelGuardView').then(module => ({ default: module.ZeroTrustKernelGuardView })));
 
-function createPermissionsSession() {
-  return {
-    linux: new LinuxSimulatorEngine(createInitialLinuxFS()),
-    windows: new WindowsSimulatorEngine(createInitialWindowsFS())
-  };
-}
-
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeLabId, setActiveLabId] = useState<string>(PRACTICAL_LABS[0].id);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
 
-  const [permissionsSession, setPermissionsSession] = useState(createPermissionsSession);
-  const { linux: linuxEngine, windows: windowsEngine } = permissionsSession;
+  const [sessions, setSessions] = useState<Record<string, LabSession>>(() => ({
+    [PRACTICAL_LABS[0].id]: createLabSession()
+  }));
+  const [customLabs, setCustomLabs] = useState<LabDefinition[]>([]);
+  const activeSession = sessions[activeLabId] ?? sessions[PRACTICAL_LABS[0].id];
+  const activeScenario = [...PRACTICAL_LABS, ...customLabs].find(lab => lab.id === activeLabId);
+  const { linux: linuxEngine, windows: windowsEngine } = activeSession;
 
   // Estados de telemetria sênior em tempo real
   const [syscalls, setSyscalls] = useState<SyscallTrace[]>([]);
@@ -164,30 +161,29 @@ export function App() {
   };
 
   const handleSelectLab = (labId: string) => {
+    setSessions(previous => previous[labId] ? previous : { ...previous, [labId]: createLabSession() });
     setActiveLabId(labId);
     setActiveTab('labs');
   };
 
+  const handleSessionLogs = (logs: ForensicLogRecord[]) => {
+    const tagged = logs.map(log => ({ ...log, labId: activeLabId, attemptId: activeSession.id }));
+    activeSession.logs.push(...tagged);
+    handleRecordForensicLogs(tagged);
+  };
+
   const handleExecuteRemediation = (os: OSType, command: string) => {
-    if (os === 'linux') {
-      const res = linuxEngine.execute(command);
-      if (res.syscalls) handleRecordSyscalls(res.syscalls);
-      if (res.edrAlerts) handleRecordEDRAlerts(res.edrAlerts);
-      if (res.forensicLogs) handleRecordForensicLogs(res.forensicLogs);
-      if (res.stateChanges?.flagDiscovered) {
-        handleCaptureFlag(res.stateChanges.flagDiscovered);
-      }
-      showNotification(`[Linux Remediação] Comando executado: ${command}`);
-    } else {
-      const res = windowsEngine.execute(command);
-      if (res.syscalls) handleRecordSyscalls(res.syscalls);
-      if (res.edrAlerts) handleRecordEDRAlerts(res.edrAlerts);
-      if (res.forensicLogs) handleRecordForensicLogs(res.forensicLogs);
-      if (res.stateChanges?.flagDiscovered) {
-        handleCaptureFlag(res.stateChanges.flagDiscovered);
-      }
-      showNotification(`[Windows Remediação] Comando executado: ${command}`);
+    const engine = os === 'linux' ? linuxEngine : windowsEngine;
+    const result = engine.execute(command);
+    if (result.syscalls) handleRecordSyscalls(result.syscalls);
+    if (result.edrAlerts) handleRecordEDRAlerts(result.edrAlerts);
+    if (result.forensicLogs) handleSessionLogs(result.forensicLogs.map(log => ({ ...log, commandExitCode: result.exitCode })));
+    if (result.exitCode !== 0) {
+      showNotification(result.error || result.output || 'A remediação falhou no simulador.');
+      return;
     }
+    if (result.stateChanges?.flagDiscovered) handleCaptureFlag(result.stateChanges.flagDiscovered);
+    showNotification(`Comando executado no cenário: ${command}`);
   };
 
   const totalTasksCount = PRACTICAL_LABS.reduce((acc, l) => acc + l.tasks.length, 0);
@@ -264,7 +260,11 @@ export function App() {
 
         {activeTab === 'security-audit' && (
           <SecurityAuditView
-            flagsFound={flagsFound}
+            scenarioTitle={activeScenario?.title}
+            isLinuxCapFixed={!linuxEngine.hasPythonSetuidCapability()}
+            isLinuxMalwareKilled={!linuxEngine.getProcesses().some(process => process.pid === 1337 && process.status !== 'stopped')}
+            isWinLsassHardened={windowsEngine.isLsaPplConfigured()}
+            isUpdaterPathFixed={windowsEngine.hasQuotedUpdaterPath()}
             linuxFirewallBlocked={linuxEngine.getFirewallStatus().blockedPorts.includes(4444)}
             windowsFirewallBlocked={windowsEngine.getFirewallStatus().blockedPorts.includes(8089)}
             linuxSuidVulnerable={linuxEngine.hasFindSetuid()}
@@ -289,12 +289,13 @@ export function App() {
               ? `ufw deny ${port}`
               : `netsh advfirewall firewall add rule name="Block ${port}" dir=in action=block protocol=TCP localport=${port}`
             )}
-            onProbe={record => handleRecordForensicLogs([record])}
+            onProbe={record => handleSessionLogs([record])}
           />
         )}
 
         {activeTab === 'forensics' && (
           <ForensicLogsViewer
+            currentAttemptId={activeSession.id}
             logs={forensicLogs}
             onClearLogs={() => setForensicLogs([])}
           />
@@ -403,15 +404,27 @@ export function App() {
         )}
 
         {activeTab === 'lab-builder' && (
-          <CustomLabBuilderView />
+          <CustomLabBuilderView onLoadCustomLab={lab => {
+            setCustomLabs(previous => [...previous.filter(item => item.id !== lab.id), lab]);
+            handleSelectLab(lab.id);
+          }} />
         )}
 
         {activeTab === 'labs' && (
           <LabRunnerView
+            key={activeLabId}
             activeLabId={activeLabId}
-            permissionsSession={permissionsSession}
-            onResetPermissionsSession={() => setPermissionsSession(createPermissionsSession())}
-            onTaskCompleted={handleTaskCompleted}
+            labs={[...PRACTICAL_LABS, ...customLabs]}
+            session={activeSession}
+            onOpenTool={setActiveTab}
+            onSelectLab={handleSelectLab}
+            onResetSession={() => setSessions(previous => ({ ...previous, [activeLabId]: createLabSession() }))}
+            onTaskCompleted={(id, flag) => {
+              if (PRACTICAL_LABS.some(lab => lab.id === activeLabId) && !completedTasks.has(id)) {
+                handleTaskCompleted(id, flag);
+              }
+            }}
+            onLabFinished={(id, duration) => WinLinxEventBridge.getInstance().notifyLabFinished(id, duration)}
             completedTasks={completedTasks}
             onRecordSyscalls={handleRecordSyscalls}
             onRecordEDRAlerts={handleRecordEDRAlerts}

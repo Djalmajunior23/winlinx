@@ -1,3 +1,6 @@
+import { readCustomLabPackage } from '../src/core/customLabPackage';
+import { createLabSession, incorrectEvidence, matchesLabObservation, verifyLabState } from '../src/core/labSession';
+import { PRACTICAL_LABS } from '../src/data/labs';
 import test from 'node:test';
 import assert from 'node:assert';
 import { assessInboundTcp, parseTcpPort } from '../src/core/networkDefense.ts';
@@ -469,5 +472,72 @@ test('A ponte de iframe aceita somente origens HTTP(S) explícitas', () => {
   assert.equal(resolveParentOrigin(origin, 'https://academy.example:8443'), 'https://academy.example:8443');
   for (const invalid of ['*', 'null', 'https://academy.example/path', 'https://user@academy.example', 'data:text/plain,test']) {
     assert.equal(resolveParentOrigin(origin, invalid), null);
+  }
+});
+
+test('Tentativas mantêm máquinas, observações e evidências isoladas', () => {
+  const first = createLabSession();
+  const second = createLabSession();
+  const lab = PRACTICAL_LABS.find(item => item.id === 'lab-processes-memory')!;
+  const task = lab.tasks.find(item => item.verify === 'linux-tcp-filtered')!;
+  for (const required of task.requires ?? []) first.completed.add(required);
+  assert.equal(verifyLabState(task, first).passed, false);
+  first.linux.execute('ufw deny 4445');
+  assert.equal(verifyLabState(task, first).passed, false);
+  first.linux.execute('ufw deny 4444');
+  assert.equal(verifyLabState(task, first).passed, true);
+  assert.equal(verifyLabState(task, second).passed, false);
+  assert.deepEqual(second.linux.getFirewallStatus().blockedPorts, []);
+  const observation = lab.tasks.find(item => item.id === 'task-proc-linux-net')!;
+  const alternative = 'netstat -tulpn';
+  assert.equal(matchesLabObservation(observation, 'linux', alternative, second.linux.execute(alternative)), true);
+  assert.deepEqual(incorrectEvidence(observation, ['4445', 'kworker_rev']), ['Porta TCP em escuta']);
+  assert.deepEqual(incorrectEvidence(observation, ['4444', 'kworker_rev']), []);
+});
+
+test('Remediações do serviço e das políticas exigem o alvo correto e podem ser relidas', () => {
+  const { linux, windows } = createLabSession();
+  assert.equal(windows.execute('sc qc desconhecido').exitCode, 1);
+  assert.equal(windows.hasQuotedUpdaterPath(), false);
+  assert.equal(windows.execute(`sc config WinVulnerableUpdater binPath= '"C:\\Program Files\\Custom App\\service.exe"'`).exitCode, 0);
+  assert.equal(windows.hasQuotedUpdaterPath(), true);
+  assert.ok(windows.execute('sc qc WinVulnerableUpdater').output.includes('"C:\\Program Files\\Custom App\\service.exe"'));
+  assert.match(windows.execute('sc query WinVulnerableUpdater').output, /RUNNING/);
+  assert.equal(windows.execute('reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v runasppl /t REG_DWORD /d 1 /f').exitCode, 0);
+  assert.equal(windows.isLsaPplConfigured(), true);
+  assert.equal(linux.execute('sudo visudo --require-password outra').exitCode, 1);
+  assert.equal(linux.requiresSudoPasswordForStudent(), false);
+  assert.equal(linux.execute('sudo visudo --require-password aluno').exitCode, 0);
+  assert.equal(linux.requiresSudoPasswordForStudent(), true);
+  assert.match(linux.execute('cat /etc/sudoers').output, /PASSWD: \/usr\/bin\/apt-get/);
+});
+
+test('Pacotes personalizados validam versão e preservam múltiplas tarefas', () => {
+  const source = {
+    version: 1, lab: { title: 'Teste', description: 'Cenário', difficulty: 'Iniciante',
+      tasks: [
+        { title: 'Identidade', targetOS: 'linux', validationCommand: 'whoami' },
+        { title: 'Diretório', targetOS: 'windows', validationCommand: 'cd' }
+      ] }
+  };
+  assert.throws(() => readCustomLabPackage(JSON.stringify({ ...source, version: 2 })), /versão/);
+  const lab = readCustomLabPackage(JSON.stringify(source));
+  assert.equal(lab.tasks.length, 2);
+  assert.notEqual(lab.tasks[0].id, lab.tasks[1].id);
+  assert.notEqual(lab.id, readCustomLabPackage(JSON.stringify(source)).id);
+});
+
+test('Fontes de evidência dos Labs 02 a 05 correspondem aos registros da tentativa', () => {
+  for (const lab of PRACTICAL_LABS.slice(1)) {
+    const session = createLabSession();
+    for (const task of lab.tasks.filter(item => item.evidence?.length)) {
+      const os = task.targetOS === 'windows' ? 'windows' : 'linux';
+      for (const command of [task.validationCommand!, ...(task.alternativeCommands ?? [])]) {
+        const result = session[os].execute(command);
+        assert.ok(matchesLabObservation(task, os, command, result), task.id + ' ' + command);
+        for (const field of task.evidence ?? []) assert.ok(result.output.toLowerCase().includes(field.expected.toLowerCase()), task.id + ' ' + field.label);
+        assert.equal(matchesLabObservation(task, os, command + ' argumento-extra', result), false);
+      }
+    }
   }
 });

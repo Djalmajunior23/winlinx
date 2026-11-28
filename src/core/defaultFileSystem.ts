@@ -262,8 +262,8 @@ export function createInitialWindowsFS(): FileNode {
                 size: 1540000,
                 content: `[Event 4624] - Logon bem-sucedido para ALUNO-PC\\Aluno (LogonType: 2 - Interativo)
 [Event 4672] - Privilégios especiais atribuídos a ALUNO-PC\\Administrator (SeDebugPrivilege, SeBackupPrivilege)
-[Event 4625] - Falha de logon para conta 'admin_ti' (Motivo: Conta ou senha desconhecida, Origem: 192.168.1.88)
-[Event 4625] - Falha de logon para conta 'admin_ti' (Motivo: Conta ou senha desconhecida, Origem: 192.168.1.88)
+[Event 4625] [10:22:13] - Falha de logon para conta 'admin_ti' (Motivo: Conta ou senha desconhecida, Origem: 192.168.1.88)
+[Event 4625] [10:22:24] - Falha de logon para conta 'admin_ti' (Motivo: Conta ou senha desconhecida, Origem: 192.168.1.88)
 [Event 7045] - Novo serviço instalado no sistema: 'WinVulnerableUpdater' (Caminho: C:\\Program Files\\Custom App\\service.exe)`
               }
             }

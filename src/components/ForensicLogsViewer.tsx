@@ -20,6 +20,7 @@ import {
 
 interface ForensicLogsViewerProps {
   logs: ForensicLogRecord[];
+  currentAttemptId?: string;
   onClearLogs?: () => void;
 }
 
@@ -143,9 +144,15 @@ const DEFAULT_INITIAL_LOGS: ForensicLogRecord[] = [
 
 export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({ 
   logs,
+  currentAttemptId,
   onClearLogs 
 }) => {
-  const allLogs = logs.length > 0 ? [...logs, ...DEFAULT_INITIAL_LOGS] : DEFAULT_INITIAL_LOGS;
+  const [scope, setScope] = useState<'attempt' | 'generated' | 'examples'>(
+    currentAttemptId ? 'attempt' : 'generated'
+  );
+  const scopedLogs = scope === 'examples' ? DEFAULT_INITIAL_LOGS
+    : scope === 'attempt' ? logs.filter(log => log.attemptId === currentAttemptId)
+    : logs;
 
   const [activeOS, setActiveOS] = useState<OSType>('windows');
   const [selectedLogId, setSelectedLogId] = useState<string>(
@@ -155,7 +162,7 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
   const [filterEventId, setFilterEventId] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const filteredLogs = allLogs.filter(log => {
+  const filteredLogs = scopedLogs.filter(log => {
     if (log.os !== activeOS) return false;
     if (filterSeverity !== 'ALL' && log.severity !== filterSeverity) return false;
     if (filterEventId !== 'ALL' && log.eventId?.toString() !== filterEventId) return false;
@@ -170,10 +177,10 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
     return true;
   });
 
-  const selectedLog = allLogs.find(l => l.id === selectedLogId) || filteredLogs[0] || allLogs[0];
+  const selectedLog = filteredLogs.find(log => log.id === selectedLogId) ?? filteredLogs[0];
 
   const handleExportJSON = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(allLogs, null, 2));
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(scopedLogs, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
     downloadAnchor.setAttribute('download', `winlinx_forensic_logs_${Date.now()}.json`);
@@ -230,8 +237,18 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
               </button>
             </div>
 
+            <label className="text-xs text-slate-300">
+              Origem dos registros
+              <select value={scope} onChange={event => setScope(event.target.value as typeof scope)}
+                className="ml-2 rounded border border-slate-700 bg-slate-950 p-1">
+                {currentAttemptId && <option value="attempt">Tentativa atual</option>}
+                <option value="generated">Todos os registros gerados</option>
+                <option value="examples">Exemplos</option>
+              </select>
+            </label>
             <button
               onClick={handleExportJSON}
+              disabled={scope === 'examples' || scopedLogs.length === 0}
               className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all shadow-sm"
             >
               <Download className="w-3.5 h-3.5 text-cyan-400" />
@@ -388,6 +405,7 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
 
         {/* Inspetor de Evidência Forense Detalhada (Direita) */}
         <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col justify-between h-[560px] overflow-y-auto">
+          {selectedLog ? <>
           <div className="space-y-5">
             <div className="border-b border-slate-800 pb-3">
               <div className="flex items-center justify-between text-xs mb-2">
@@ -422,6 +440,13 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
             </div>
 
             {/* Linha de Comando Investigada */}
+            <p className="text-xs text-slate-400">
+              {selectedLog.attemptId ? `Tentativa ${selectedLog.attemptId} · ${selectedLog.labId}`
+                : DEFAULT_INITIAL_LOGS.includes(selectedLog) ? 'Registro de exemplo' : 'Registro gerado no simulador'}
+            </p>
+            {selectedLog.commandExitCode !== undefined && (
+              <p className="text-xs text-slate-400">Código de saída do comando · {selectedLog.commandExitCode}</p>
+            )}
             {selectedLog.commandLine && (
               <div className="space-y-1">
                 <span className="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
@@ -461,8 +486,8 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
 
           <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-between font-mono">
             <span>Hora do Evento: {selectedLog.timestamp}</span>
-            <span className="text-cyan-400">Audit Status: VALIDATED</span>
           </div>
+          </> : <p className="text-xs text-slate-400">Nenhuma evidência corresponde aos filtros.</p>}
         </div>
       </div>
     </div>

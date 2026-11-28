@@ -292,3 +292,24 @@ antes do build:
 A origem deve conter o esquema e o domínio, com porta quando aplicável.
 A plataforma pai deve conferir a origem do WinLinx e a janela do iframe
 ao receber cada mensagem.
+
+### Tentativas e evidências dos laboratórios
+
+Cada laboratório tem sua própria sessão de máquinas simuladas. A tentativa
+continua disponível ao navegar entre telas no mesmo carregamento da aplicação.
+O botão **Reiniciar máquinas** abre uma nova tentativa e mantém o histórico
+de tarefas concluídas. O histórico permanece no navegador ao recarregar a página.
+Exporte o dossiê da tentativa antes de fechar ou recarregar para conservar
+os registros gerados e os achados enviados.
+
+Nos Labs 02 a 05, consulte as fontes indicadas e registre os campos solicitados.
+O Lab 02 verifica o efeito do bloqueio por meio de sondas TCP simuladas. Os
+Labs 03 e 05 verificam o estado do serviço e as políticas de segurança.
+
+No Lab Builder, monte um pacote JSON versão 1 com até 20 tarefas. Gere o pacote
+ou cole um pacote existente e abra a prévia. A prévia usa máquinas isoladas e
+seu progresso fica fora do histórico dos laboratórios oficiais.
+
+Para rodar o teste de navegador após o build, execute
+`node tests/labs.browser.mjs`. Defina `WINLINX_CHROME` caso o executável
+Chromium ou Chrome tenha outro nome.

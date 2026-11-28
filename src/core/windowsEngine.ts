@@ -35,6 +35,20 @@ export class WindowsSimulatorEngine {
     return JSON.parse(JSON.stringify(this.registryData));
   }
 
+  public isLsaPplConfigured(): boolean {
+    const entry = this.registryData['HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa']?.RunAsPPL;
+    return entry?.type === 'REG_DWORD' && entry.value === 1;
+  }
+
+  public hasQuotedUpdaterPath(): boolean {
+    return this.registryData['HKLM\\SYSTEM\\CurrentControlSet\\Services\\WinVulnerableUpdater']?.ImagePath?.value
+      === '"C:\\Program Files\\Custom App\\service.exe"';
+  }
+
+  public isUpdaterRunning(): boolean {
+    return this.processes.some(process => process.pid === 4992 && process.status !== 'stopped');
+  }
+
   public getFirewallStatus() {
     return {
       active: true,
@@ -324,23 +338,6 @@ export class WindowsSimulatorEngine {
       });
     }
 
-    if (trimmed.toLowerCase().startsWith('sc ') || trimmed.toLowerCase().startsWith('sc.exe')) {
-      forensicLogs.push({
-        id: Math.random().toString(),
-        timestamp,
-        os: 'windows',
-        source: 'System.evtx',
-        eventId: 7045,
-        severity: 'WARNING',
-        user: this.currentUser,
-        computer: 'WINLINX-WIN-2026',
-        processName: 'services.exe',
-        commandLine: trimmed,
-        details: `Um serviço foi consultado ou instalado no sistema operacional: "${trimmed}"`,
-        mitreRef: 'T1543.003'
-      });
-    }
-
     if (trimmed.includes('>')) {
       const isAppend = trimmed.includes('>>');
       const parts = trimmed.split(isAppend ? '>>' : '>');
@@ -386,6 +383,12 @@ export class WindowsSimulatorEngine {
     }
 
     const res = this.executeCommandInternal(trimmed, syscalls);
+    if (res.exitCode === 0 && /^sc(?:\.exe)?\s+config\s/i.test(trimmed) && this.hasQuotedUpdaterPath()) {
+      forensicLogs.push({
+        ...forensicLogs[0], id: Math.random().toString(), eventId: 4657,
+        details: 'ImagePath do serviço WinVulnerableUpdater atualizado no Registro simulado.'
+      });
+    }
     if (res.stateChanges?.flagDiscovered === 'FLAG{WINLINX_WINDOWS_ICACLS_REMEDIATED_2026}') {
       forensicLogs.push({
         ...forensicLogs[0],
@@ -841,8 +844,12 @@ MFT record structure             : $STANDARD_INFO, $FILE_NAME, $SECURITY_DESCRIP
             this.registryData[targetKey] = {};
           }
 
-          const parsedVal = valType === 'REG_DWORD' ? parseInt(valData, 10) : valData;
-          this.registryData[targetKey][valName] = {
+          if (valType === 'REG_DWORD' && !/^(?:[0-9]+|0x[0-9a-f]+)$/i.test(valData ?? '')) {
+            return { output: 'ERRO: valor REG_DWORD inválido.', exitCode: 1 };
+          }
+          const parsedVal = valType === 'REG_DWORD' ? Number(valData) : valData;
+          const canonicalName = Object.keys(this.registryData[targetKey]).find(name => name.toLowerCase() === valName.toLowerCase()) ?? valName;
+          this.registryData[targetKey][canonicalName] = {
             type: valType,
             value: parsedVal
           };
@@ -859,7 +866,7 @@ MFT record structure             : $STANDARD_INFO, $FILE_NAME, $SECURITY_DESCRIP
             explanation: 'O Kernel do Windows atualiza a hive de registro no arquivo de configuração SYSTEM da pasta System32/config.'
           });
 
-          if (valName.toLowerCase() === 'runasppl' && parsedVal === 1) {
+          if (targetKey.endsWith('\\Control\\Lsa') && canonicalName === 'RunAsPPL' && this.isLsaPplConfigured()) {
             return {
               output: `A operação foi concluída com êxito.\n[HARDENING] Proteção de Processo Leve (RunAsPPL) ATIVADA para o LSASS! O processo lsass.exe agora está isolado contra injeção e leitura de memória de ferramentas como Mimikatz.`,
               exitCode: 0,
@@ -1005,8 +1012,20 @@ Stopped  wuauserv           Windows Update`,
       case 'sc.exe':
       case 'sc': {
         const sub = args[0]?.toLowerCase();
+        const svcName = 'WinVulnerableUpdater';
+        const service = this.registryData['HKLM\\SYSTEM\\CurrentControlSet\\Services\\WinVulnerableUpdater'];
+        if (args[1]?.toLowerCase() !== svcName.toLowerCase()) {
+          return { output: '[SC] Serviço não encontrado no cenário.', exitCode: 1 };
+        }
+        if (sub === 'config' && args.length === 4 && args[2].toLowerCase() === 'binpath='
+          && args[3].toLowerCase() === '"c:\\program files\\custom app\\service.exe"') {
+          service.ImagePath.value = '"C:\\Program Files\\Custom App\\service.exe"';
+          return { output: '[SC] Caminho do serviço atualizado. Consulte sc qc para confirmar.', exitCode: 0 };
+        }
+        if (sub === 'query') {
+          return { output: `NOME_DO_SERVIÇO: ${svcName}\nESTADO: ${this.isUpdaterRunning() ? 'RUNNING' : 'STOPPED'}`, exitCode: 0 };
+        }
         if (sub === 'qc') {
-          const svcName = args[1] || 'WinVulnerableUpdater';
           return {
             output: `[SC] QueryServiceConfig SUCESSO
 
@@ -1014,19 +1033,19 @@ NOME_DO_SERVIÇO: ${svcName}
         TIPO               : 10  WIN32_OWN_PROCESS
         TIPO_INICIALIZAÇÃO : 2   AUTO_START
         CONTROLE_ERRO      : 1   NORMAL
-        NOME_CAMINHO_BINÁR : C:\\Program Files\\Custom App\\service.exe  <-- [Unquoted Service Path!]
+        NOME_CAMINHO_BINÁR : ${service.ImagePath.value}${this.hasQuotedUpdaterPath() ? '' : '  <-- [Unquoted Service Path!]'}
         GRUPO_ORDEM_CARREG :
         MARCA              : 0
         NOME_DE_EXIBIÇÃO   : Custom App Updater Service
         DEPENDÊNCIAS       :
         NOME_INÍCIO_SERVIÇO: LocalSystem`,
             exitCode: 0,
-            stateChanges: {
+            stateChanges: this.hasQuotedUpdaterPath() ? undefined : {
               flagDiscovered: 'FLAG{WINLINX_UNQUOTED_PATH_IDENTIFIED}'
             }
           };
         }
-        return { output: 'Sintaxe: sc qc <NomeDoServiço>', exitCode: 0 };
+        return { output: 'Configuração de serviço não suportada pelo cenário.', exitCode: 1 };
       }
 
       case 'get-eventlog': {
