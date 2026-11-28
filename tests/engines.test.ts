@@ -691,3 +691,15 @@ test('Autor e catálogo usam critérios de estado tipados para porta e Registro'
   assert.throws(() => readCustomLabPackage(pack([{ ...reg, targetOS: 'linux' }])), /Critério/);
   assert.throws(() => readCustomLabPackage(pack([{ ...tcp, validationCommand: 'pwd' }])), /Escolha/);
 });
+
+test('Revisões de laboratório preservam a ordem e rejeitam pré-requisitos inválidos', () => {
+  const first = { id: 'origem', title: 'Consultar identidade', targetOS: 'linux', validationCommand: 'whoami' };
+  const second = { id: 'destino', title: 'Consultar diretório', targetOS: 'linux', validationCommand: 'pwd', requires: ['origem'] };
+  const make = (tasks: unknown[]) => JSON.stringify({
+    version: 1, lab: { title: 'Revisão', description: 'Edição', difficulty: 'Iniciante', tasks }
+  });
+  const lab = readCustomLabPackage(make([first, second]));
+  assert.deepEqual(lab.tasks[1].requires, [lab.tasks[0].id]);
+  assert.throws(() => readCustomLabPackage(make([second, first])), /pré-requisitos/);
+  assert.throws(() => readCustomLabPackage(make([first, { ...second, id: 'origem' }])), /repetido/);
+});

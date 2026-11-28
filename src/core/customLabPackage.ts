@@ -42,6 +42,14 @@ export function readCustomLabPackage(source: string): LabDefinition {
   }
 
   const id = 'lab-custom-' + (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
+  const taskIds = new Map<string, number>();
+  for (const [index, task] of lab.tasks.entries()) {
+    if (task?.id === undefined) continue;
+    if (typeof task.id !== 'string' || !/^[a-zA-Z0-9_-]{1,60}$/.test(task.id) || taskIds.has(task.id)) {
+      throw new Error(`Identificador inválido ou repetido na tarefa ${index + 1}.`);
+    }
+    taskIds.set(task.id, index);
+  }
   const tasks: LabTask[] = lab.tasks.map((task: Partial<LabTask> | null, index: number) => {
     if (!task || !validText(task.title, 150) || (task.verify === undefined && !validText(task.validationCommand, 300))
       || !['linux', 'windows', 'both'].includes(task.targetOS ?? '')
@@ -53,6 +61,12 @@ export function readCustomLabPackage(source: string): LabDefinition {
     const verify = task.verify === undefined ? undefined : readStateCriterion(task.verify, task.targetOS!, index);
     if (verify && (task.evidence !== undefined || task.validationCommand !== undefined || task.expectedOutputSubstring !== undefined)) {
       throw new Error(`Escolha um critério de estado ou de observação para a tarefa ${index + 1}.`);
+    }
+    const prerequisites = task.requires;
+    if (prerequisites !== undefined && (!Array.isArray(prerequisites)
+      || prerequisites.some(required => typeof required !== 'string' || (taskIds.get(required) ?? index) >= index)
+      || new Set(prerequisites).size !== prerequisites.length)) {
+      throw new Error(`Os pré-requisitos da tarefa ${index + 1} devem indicar tarefas anteriores com ID válido.`);
     }
     const evidence = task.evidence;
     if (evidence !== undefined && (!Array.isArray(evidence) || evidence.length === 0 || evidence.length > 8
@@ -69,6 +83,7 @@ export function readCustomLabPackage(source: string): LabDefinition {
       objective: validText(task.objective, 500) ? task.objective : task.title,
       hint: validText(task.hint, 500) ? task.hint : task.validationCommand ?? task.title,
       verify,
+      requires: prerequisites?.map(required => `${id}-${taskIds.get(required)! + 1}`),
       validationCommand: task.validationCommand,
       expectedOutputSubstring: task.expectedOutputSubstring,
       flagReward: task.flagReward,

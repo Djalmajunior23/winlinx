@@ -1,6 +1,8 @@
+import { saveAttempt } from '../core/attemptHistory';
+import { AttemptHistory } from './AttemptHistory';
 import React, { useState } from 'react';
-import { downloadAttempt, incorrectEvidence, matchesLabObservation, verifyLabState, type LabSession } from '../core/labSession';
-import type { LabDefinition, LabTask, OSType, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
+import { buildAttemptReport, downloadAttemptReport, incorrectEvidence, matchesLabObservation, verifyLabState, type LabSession } from '../core/labSession';
+import type { CommandResult, LabDefinition, LabTask, OSType, ForensicLogRecord } from '../types/simulator';
 import { Terminal } from './Terminal';
 import { 
   Terminal as TerminalIcon, 
@@ -28,26 +30,33 @@ interface LabRunnerViewProps {
   onTaskCompleted: (taskId: string, flag?: string) => void;
   onLabFinished: (id: string, duration: number) => void;
   completedTasks: Set<string>;
-  onRecordSyscalls?: (traces: SyscallTrace[]) => void;
-  onRecordEDRAlerts?: (alerts: EDRAlert[]) => void;
+  onExecuteCommand: (os: OSType, command: string) => CommandResult;
+  onRecordLogs: (logs: ForensicLogRecord[]) => void;
 }
 
 export function LabRunnerView({
   activeLabId, labs, session, storageNotice, onRetrySave, onSessionChange, onOpenTool, onSelectLab, onResetSession, onTaskCompleted, onLabFinished,
-  completedTasks, onRecordSyscalls, onRecordEDRAlerts
+  completedTasks, onExecuteCommand, onRecordLogs
 }: LabRunnerViewProps) {
   const currentLab = labs.find(lab => lab.id === activeLabId) ?? labs[0];
   const [activeOS, setActiveOS] = useState<OSType>(currentLab.tasks[0]?.targetOS === 'windows' ? 'windows' : 'linux');
   const [hint, setHint] = useState<{ id: string; level: number } | null>(null);
   const [feedback, setFeedback] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [archiveStatus, setArchiveStatus] = useState<{ attemptId: string; status: 'saving' | 'saved' | 'error' }>();
+  const archiveAttempt = async () => {
+    const attemptId = session.id;
+    setArchiveStatus({ attemptId, status: 'saving' });
+    try {
+      await saveAttempt({ attemptId, title: currentLab.title, finishedAt: new Date().toISOString(),
+        report: structuredClone(buildAttemptReport(currentLab.id, session)) });
+      setArchiveStatus({ attemptId, status: 'saved' });
+    } catch {
+      setArchiveStatus({ attemptId, status: 'error' });
+    }
+  };
   const [, refresh] = useState(0);
   const { linux: linuxEngine, windows: windowsEngine } = session;
-
-  const recordLogs = (logs: ForensicLogRecord[]) => {
-    const tagged = logs.map(log => ({ ...log, labId: currentLab.id, attemptId: session.id }));
-    session.logs.push(...tagged);
-    onSessionChange();
-  };
 
   const completeTask = (task: LabTask, note: string) => {
     if (session.completed.has(task.id)) return;
@@ -56,19 +65,14 @@ export function LabRunnerView({
     setFeedback(note);
     onTaskCompleted(task.id, task.flagReward);
     if (currentLab.tasks.every(item => session.completed.has(item.id))) {
+      void archiveAttempt();
       onLabFinished(currentLab.id, Math.max(0, Math.floor((Date.now() - Date.parse(session.startedAt)) / 1000)));
     }
     refresh(value => value + 1);
   };
 
   const handleExecuteCommand = (command: string) => {
-    const engine = activeOS === 'linux' ? linuxEngine : windowsEngine;
-    const result = engine.execute(command);
-    onSessionChange();
-    refresh(value => value + 1);
-    if (result.syscalls) onRecordSyscalls?.(result.syscalls);
-    if (result.edrAlerts) onRecordEDRAlerts?.(result.edrAlerts);
-    if (result.forensicLogs) recordLogs(result.forensicLogs.map(log => ({ ...log, commandExitCode: result.exitCode })));
+    const result = onExecuteCommand(activeOS, command);
 
     setFeedback(result.exitCode === 0
       ? 'Comando executado. Confira se a saída contém a evidência pedida na tarefa.'
@@ -76,6 +80,10 @@ export function LabRunnerView({
     let flag: string | undefined;
     for (const task of currentLab.tasks) {
       if (session.completed.has(task.id) || task.verify || !matchesLabObservation(task, activeOS, command, result)) continue;
+      if (task.requires?.some(id => !session.completed.has(id))) {
+        setFeedback('Conclua as tarefas anteriores exigidas por este objetivo.');
+        continue;
+      }
       if (task.evidence?.length) {
         session.observed.add(task.id);
         setFeedback('Fonte de evidência consultada. Registre seu achado na tarefa.');
@@ -106,7 +114,7 @@ export function LabRunnerView({
   const verifyTask = (task: LabTask) => {
     const check = verifyLabState(task, session);
     const os = task.targetOS === 'windows' ? 'windows' : 'linux';
-    recordLogs([{
+    onRecordLogs([{
       id: globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
       timestamp: new Date().toISOString(), os, source: os === 'linux' ? 'audit.log' : 'Security.evtx',
       facility: 'LAB_VERIFY', severity: check.passed ? 'INFO' : 'WARNING',
@@ -121,6 +129,10 @@ export function LabRunnerView({
 
   return (
     <div className="space-y-6">
+      <button type="button" className="text-xs text-cyan-300" onClick={() => setShowHistory(value => !value)}>
+        {showHistory ? 'Ocultar histórico de tentativas' : 'Abrir histórico de tentativas'}
+      </button>
+      {showHistory && <AttemptHistory key={archiveStatus?.status} />}
       {/* Seletor Rápido de Labs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
         {labs.map(lab => {
@@ -217,7 +229,7 @@ export function LabRunnerView({
               </div>
 
               <p className="text-xs text-slate-400">Histórico: {currentLab.tasks.filter(task => completedTasks.has(task.id)).length}/{currentLab.tasks.length} · Tentativa atual: {labCompletedTasks}/{currentLab.tasks.length}</p>
-              <button type="button" className="text-xs text-cyan-300" onClick={() => downloadAttempt(currentLab.id, session)}>Exportar evidências da tentativa</button>
+              <button type="button" className="text-xs text-cyan-300" onClick={() => downloadAttemptReport(buildAttemptReport(currentLab.id, session))}>Exportar evidências da tentativa</button>
               <div className="flex flex-wrap gap-3 text-xs text-cyan-300">
                 <button type="button" onClick={() => onOpenTool('firewall')}>Firewall da sessão</button>
                 <button type="button" onClick={() => onOpenTool('security-audit')}>Auditoria da sessão</button>
@@ -318,6 +330,17 @@ export function LabRunnerView({
               })}
             </div>
 
+            {isLabFullyCompleted && archiveStatus?.attemptId !== session.id && (
+              <button type="button" className="text-xs text-cyan-300" onClick={() => void archiveAttempt()}>Guardar dossiê no histórico</button>
+            )}
+            {isLabFullyCompleted && archiveStatus?.attemptId === session.id && archiveStatus.status === 'saved' && (
+              <p role="status" className="text-xs text-emerald-300">Dossiê guardado no histórico deste navegador.</p>
+            )}
+            {isLabFullyCompleted && archiveStatus?.attemptId === session.id && archiveStatus.status === 'error' && (
+              <p role="alert" className="text-xs text-amber-300">O dossiê não foi guardado no histórico.
+                <button type="button" className="ml-2 underline" onClick={() => void archiveAttempt()}>Tentar guardar novamente</button>
+              </p>
+            )}
             {isLabFullyCompleted && (
               <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950 to-cyan-950 border border-emerald-500/40 text-center space-y-2 animate-in fade-in">
                 <Award className="w-8 h-8 text-emerald-400 mx-auto" />

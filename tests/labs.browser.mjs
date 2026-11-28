@@ -87,8 +87,11 @@ try {
   async function fill(selector, value) {
     const query = `document.querySelector(${JSON.stringify(selector)})`;
     await waitFor(() => evaluate(`Boolean(${query})`), selector);
-    await evaluate(`${query}.focus()`);
-    await send('Input.dispatchKeyEvent', {type: 'keyDown', code: 'KeyA', key: 'a', modifiers: 2, windowsVirtualKeyCode: 65});
+    await evaluate(`(() => {
+      const field = ${query};
+      field.focus();
+      field.select();
+    })()`);
     await send('Input.insertText', {text: value});
   }
 
@@ -214,6 +217,65 @@ try {
   })()`);
   await text('4444/TCP filtrada');
   assert.equal(await evaluate(`document.body.innerText.includes('registro-nova-tentativa')`), false);
+  await click('Labs');
+  await click('Abrir histórico de tentativas');
+  await text('Histórico de tentativas concluídas');
+  await text('Exportar dossiê arquivado');
+  await fill('input[type="search"]', 'nao-existe-winlinx');
+  await text('Nenhuma tentativa encontrada.');
+  await fill('input[type="search"]', 'Triagem');
+  await click('Exportar dossiê arquivado');
+
+  await click('Lab 03');
+  await terminal('cat /etc/crontab');
+  await tagForms();
+  await submit(0, ['/opt/scripts/backup.sh', 'root']);
+  await text('Tentativa atual: 1/3');
+  await click('Windows Host (PowerShell)');
+  await terminal('sc qc servico-inexistente', 'Windows');
+  await text('Serviço não encontrado');
+  await terminal('sc qc WinVulnerableUpdater', 'Windows');
+  await tagForms();
+  await submit(0, ['WinVulnerableUpdater', 'LocalSystem']);
+  await text('Tentativa atual: 2/3');
+  await click('Verificar estado do alvo');
+  await text('Confira as aspas');
+  await terminal(`sc config WinVulnerableUpdater binPath= '"C:\\Program Files\\Custom App\\service.exe"'`, 'Windows');
+  await click('Verificar estado do alvo');
+  await text('Tentativa atual: 3/3');
+
+  await click('Lab 04');
+  await terminal('cat /var/log/auth.log');
+  await tagForms();
+  await submit(0, ['203.0.113.55', 'root', '10:20:44']);
+  await text('Revise a evidência');
+  await submit(0, ['203.0.113.55', 'admin', '10:20:44']);
+  await text('Tentativa atual: 1/2');
+  await click('Windows Host (PowerShell)');
+  await terminal('Get-EventLog -LogName Security', 'Windows');
+  await tagForms();
+  await submit(0, ['192.168.1.88', 'admin_ti', '4625', '10:22:13']);
+  await text('Tentativa atual: 2/2');
+
+  await click('Lab 05');
+  await terminal('whoami /priv', 'Windows');
+  await tagForms();
+  await submit(0, ['SeChangeNotifyPrivilege']);
+  await click('Linux Host (Bash)');
+  await terminal('cat /etc/sudoers');
+  await tagForms();
+  await submit(0, ['aluno', '/usr/bin/apt-get']);
+  await text('Tentativa atual: 2/4');
+  await click('Verificar estado do alvo', 'Tarefa 3');
+  await text('ainda não exige senha');
+  await terminal('sudo visudo --require-password aluno');
+  await click('Verificar estado do alvo', 'Tarefa 3');
+  await text('Tentativa atual: 3/4');
+  await click('Windows Host (PowerShell)');
+  await terminal('reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v RunAsPPL /t REG_DWORD /d 1 /f', 'Windows');
+  await click('Verificar estado do alvo', 'Tarefa 4');
+  await text('Tentativa atual: 4/4');
+
   await click('Dashboard de Módulos');
   await click('Lab Builder (CTF)');
   await waitFor(() => evaluate(`[...document.querySelectorAll('select')].some(select => select.querySelector('option[value="tcp-filtered"]'))`), 'critério no construtor');
@@ -240,8 +302,21 @@ try {
   await click('Importar e abrir prévia');
   await text('JSON inválido.');
   await fill('#lab-package', JSON.stringify(packageData));
-  await click('Importar e abrir prévia');
+  await click('Importar para editar');
+  await text('Editar tarefas importadas');
+  await fill('#builder-task-1', JSON.stringify({id: 'tarefa-2', title: 'Consultar diretório revisado', targetOS: 'linux',
+    validationCommand: 'pwd', requires: ['tarefa-1']}));
+  await click('Subir tarefa 2');
+  await click('Exportar revisão');
+  await text('pré-requisitos da tarefa 1');
+  await click('Descer tarefa 1');
+  await click('Exportar revisão');
+  const revision = await evaluate('JSON.parse(document.querySelector("#lab-package").value)');
+  assert.equal(revision.lab.tasks[1].title, 'Consultar diretório revisado');
+  await click('Testar revisão');
   await text('Cenário importado');
+  await terminal('pwd');
+  await text('Conclua as tarefas anteriores');
   await terminal('whoami');
   await terminal('pwd');
   await text('Tentativa atual: 2/4');
@@ -282,6 +357,12 @@ try {
   await click('Logs forenses');
   await click('Linux Auditd / Auth');
   await text('registro-salvo-apos-repetir');
+  await evaluate('sessionStorage.clear()');
+  await reload();
+  await click('Labs');
+  await click('Abrir histórico de tentativas');
+  await text('Cenário importado');
+  await click('Exportar dossiê arquivado');
   assert.deepEqual(errors, []);
   console.log('Lab 02: evidência, rejeição, contenção, isolamento, retomada e reset verificados.');
 } finally {

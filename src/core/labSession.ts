@@ -43,16 +43,32 @@ export function incorrectEvidence(task: LabTask, answers: string[]) {
   ).map(field => field.label);
 }
 
-export function downloadAttempt(labId: string, session: LabSession) {
-  const json = JSON.stringify({
+export function recordAttemptLogs(labId: string, session: LabSession, logs: ForensicLogRecord[]) {
+  session.logs.push(...logs.map(log => ({ ...log, labId, attemptId: session.id })));
+}
+
+export function executeLabCommand(labId: string, session: LabSession, os: OSType, command: string) {
+  const result = session[os].execute(command);
+  if (result.forensicLogs) recordAttemptLogs(labId, session,
+    result.forensicLogs.map(log => ({ ...log, commandExitCode: result.exitCode })));
+  return result;
+}
+
+export function buildAttemptReport(labId: string, session: LabSession) {
+  return {
     version: 1, labId, attemptId: session.id, startedAt: session.startedAt,
     completedTasks: [...session.completed], submittedEvidence: Object.fromEntries(session.answers),
     logs: session.logs
-  }, null, 2);
-  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  };
+}
+
+export type AttemptReport = ReturnType<typeof buildAttemptReport>;
+
+export function downloadAttemptReport(report: AttemptReport) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `winlinx-${labId}-${session.id}.json`;
+  link.download = `winlinx-${report.labId}-${report.attemptId}.json`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }

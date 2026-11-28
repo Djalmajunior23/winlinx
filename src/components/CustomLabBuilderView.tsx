@@ -72,6 +72,53 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
     lab: { title: labTitle, description: labDescription, difficulty, tasks }
   }, null, 2);
 
+  const [editingTasks, setEditingTasks] = useState<string[] | null>(null);
+  const [taskError, setTaskError] = useState<{ index: number; message: string } | null>(null);
+  const handleImportForEditing = () => {
+    try {
+      readCustomLabPackage(jsonExport);
+      const { lab } = JSON.parse(jsonExport);
+      setLabTitle(lab.title);
+      setLabDescription(lab.description);
+      setDifficulty(lab.difficulty);
+      const taken = new Set(lab.tasks.map((task: LabTask) => task.id).filter(Boolean));
+      setEditingTasks(lab.tasks.map((task: Partial<LabTask>, index: number) => {
+        let id = task.id ?? `tarefa-${index + 1}`;
+        while (!task.id && taken.has(id)) id += '-nova';
+        taken.add(id);
+        return JSON.stringify({ ...task, id }, null, 2);
+      }));
+      setPackageError('');
+      setTaskError(null);
+    } catch (error) {
+      setPackageError((error as Error).message);
+    }
+  };
+
+  const compileEdition = (preview: boolean) => {
+    if (!editingTasks) return;
+    setTaskError(null);
+    setPackageError('');
+    const tasks = [];
+    for (const [index, source] of editingTasks.entries()) {
+      try { tasks.push(JSON.parse(source)); } catch {
+        setTaskError({ index, message: 'JSON da tarefa inválido.' });
+        return;
+      }
+    }
+    const source = makePackage(tasks);
+    try {
+      const lab = readCustomLabPackage(source);
+      setJsonExport(source);
+      if (preview) onLoadCustomLab?.(lab);
+    } catch (error) {
+      const message = (error as Error).message;
+      const task = message.match(/tarefa (\d+)/i);
+      if (task) setTaskError({ index: Number(task[1]) - 1, message });
+      else setPackageError(message);
+    }
+  };
+
   const handleGenerateJSON = () => {
     const draft = currentTask();
     const hasDraft = draft.title?.trim() || draft.validationCommand?.trim() || draft.verify || draft.expectedOutputSubstring || draft.flagReward || draft.evidence;
@@ -180,6 +227,7 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
               </div>
             </div>
 
+            {editingTasks === null ? <>
             <div className="pt-3 border-t border-slate-800 space-y-3">
               <h4 className="font-bold text-slate-200">Tarefa Avaliativa:</h4>
 
@@ -287,6 +335,46 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
               <Sparkles className="w-4 h-4" />
               <span>Compilar e Exportar Pacote de Laboratório</span>
             </button>
+            </> : (
+              <section className="space-y-4">
+                <h4 className="font-semibold text-slate-200">Editar tarefas importadas</h4>
+                <p className="text-slate-400">Use os IDs das tarefas anteriores em <code>requires</code> para definir pré-requisitos.</p>
+                {editingTasks.map((source, index) => (
+                  <div key={index} className="space-y-2 rounded border border-slate-800 p-3">
+                    <label className="block" htmlFor={`builder-task-${index}`}>Tarefa ${index + 1}</label>
+                    <textarea id={`builder-task-${index}`} rows={8} value={source}
+                      aria-invalid={taskError?.index === index}
+                      aria-describedby={taskError?.index === index ? `builder-error-${index}` : undefined}
+                      className="w-full bg-slate-950 p-2 font-mono text-slate-200"
+                      onChange={event => {
+                        const value = event.target.value;
+                        setEditingTasks(previous => previous?.map((task, i) => i === index ? value : task) ?? null);
+                        setTaskError(null);
+                      }} />
+                    {taskError?.index === index && <p id={`builder-error-${index}`} role="alert" className="text-amber-300">{taskError.message}</p>}
+                    <div className="flex gap-4 text-purple-300">
+                      {([-1, 1] as const).map(direction => (
+                        <button key={direction} type="button" disabled={!editingTasks[index + direction]}
+                          onClick={() => {
+                            const reordered = [...editingTasks];
+                            [reordered[index], reordered[index + direction]] = [reordered[index + direction], reordered[index]];
+                            setEditingTasks(reordered);
+                            setTaskError(null);
+                          }}>
+                          {direction < 0 ? 'Subir' : 'Descer'} tarefa {index + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-4 text-purple-300">
+                  <button type="button" onClick={() => compileEdition(false)}>Exportar revisão</button>
+                  <button type="button" onClick={() => compileEdition(true)}>Testar revisão</button>
+                  <button type="button" onClick={() => setEditingTasks(null)}>Voltar ao editor de novas tarefas</button>
+                </div>
+              </section>
+            )}
+
           </div>
         </div>
 
@@ -313,6 +401,7 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
             onChange={event => setJsonExport(event.target.value)}
             className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs h-80"
             placeholder="Gere um pacote ou cole um JSON para importar." />
+          <button type="button" onClick={handleImportForEditing} className="mr-4 text-sm text-purple-300">Importar para editar</button>
           <button type="button" onClick={handlePreview} className="text-sm text-purple-300">Importar e abrir prévia</button>
           {packageError && <p role="alert" className="text-xs text-amber-300">{packageError}</p>}
         </div>

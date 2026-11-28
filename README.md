@@ -324,3 +324,14 @@ firewall do cenário. **Valor do Registro Windows** verifica a chave, o nome,
 o tipo e o conteúdo configurado no Registro simulado. Esses critérios também
 podem ser usados nos pacotes JSON versão 1, que continuam aceitando as tarefas
 de comando existentes.
+
+
+Para revisar um pacote existente, cole o JSON no Lab Builder e escolha
+**Importar para editar**. O editor apresenta cada tarefa separadamente,
+permite mudar a ordem e aponta erros na tarefa correspondente. Use
+`requires` com os IDs das tarefas anteriores para definir pré-requisitos.
+Teste a revisão em uma sessão isolada antes de exportar o JSON.
+
+O **Histórico de tentativas** usa IndexedDB para consultar, buscar e exportar
+dossiês de laboratórios concluídos no mesmo navegador. Os dossiês continuam
+disponíveis após fechar a aba enquanto os dados do site forem mantidos.

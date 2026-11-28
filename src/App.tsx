@@ -1,5 +1,5 @@
 import { createLabWorkspaceStore } from './core/labPersistence';
-import { createLabSession, type LabSession } from './core/labSession';
+import { createLabSession, executeLabCommand, recordAttemptLogs, type LabSession } from './core/labSession';
 import type { LabDefinition } from './types/simulator';
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Navbar, ActiveTab } from './components/Navbar';
@@ -57,6 +57,7 @@ export function App() {
   });
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialWorkspace.openInLabs ? 'labs' : 'dashboard');
   const [activeLabId, setActiveLabId] = useState(initialWorkspace.activeLabId);
+  const [keepBuilder, setKeepBuilder] = useState(false);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
   const [sessions, setSessions] = useState<Record<string, LabSession>>(initialWorkspace.sessions);
   const [customLabs, setCustomLabs] = useState<LabDefinition[]>(initialWorkspace.customLabs);
@@ -194,18 +195,20 @@ export function App() {
   };
 
   const handleSessionLogs = (logs: ForensicLogRecord[]) => {
-    const tagged = logs.map(log => ({ ...log, labId: activeLabId, attemptId: activeSession.id }));
-    activeSession.logs.push(...tagged);
+    recordAttemptLogs(activeLabId, activeSession, logs);
     onSessionChange();
   };
 
-  const handleExecuteRemediation = (os: OSType, command: string) => {
-    const engine = os === 'linux' ? linuxEngine : windowsEngine;
-    const result = engine.execute(command);
+  const runSessionCommand = (os: OSType, command: string) => {
+    const result = executeLabCommand(activeLabId, activeSession, os, command);
     onSessionChange();
     if (result.syscalls) handleRecordSyscalls(result.syscalls);
     if (result.edrAlerts) handleRecordEDRAlerts(result.edrAlerts);
-    if (result.forensicLogs) handleSessionLogs(result.forensicLogs.map(log => ({ ...log, commandExitCode: result.exitCode })));
+    return result;
+  };
+
+  const handleExecuteRemediation = (os: OSType, command: string) => {
+    const result = runSessionCommand(os, command);
     if (result.exitCode !== 0) {
       showNotification(result.error || result.output || 'A remediação falhou no simulador.');
       return;
@@ -443,11 +446,14 @@ export function App() {
           <ThreatInjectorView onExecuteRemediation={handleExecuteRemediation} />
         )}
 
-        {activeTab === 'lab-builder' && (
-          <CustomLabBuilderView onLoadCustomLab={lab => {
-            setCustomLabs(previous => [...previous.filter(item => item.id !== lab.id), lab]);
-            handleSelectLab(lab.id);
-          }} />
+        {(activeTab === 'lab-builder' || keepBuilder) && (
+          <div hidden={activeTab !== 'lab-builder'}>
+            <CustomLabBuilderView onLoadCustomLab={lab => {
+              setKeepBuilder(true);
+              setCustomLabs(previous => [...previous.filter(item => item.id !== lab.id), lab]);
+              handleSelectLab(lab.id);
+            }} />
+          </div>
         )}
 
         {activeTab === 'labs' && (
@@ -474,8 +480,8 @@ export function App() {
             }}
             onLabFinished={(id, duration) => WinLinxEventBridge.getInstance().notifyLabFinished(id, duration)}
             completedTasks={completedTasks}
-            onRecordSyscalls={handleRecordSyscalls}
-            onRecordEDRAlerts={handleRecordEDRAlerts}
+            onExecuteCommand={runSessionCommand}
+            onRecordLogs={handleSessionLogs}
           />
         )}
 
