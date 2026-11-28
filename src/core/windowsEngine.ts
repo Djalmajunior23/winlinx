@@ -1,3 +1,4 @@
+import { parseShellSyntax } from './shellSyntax';
 import { parseTcpPort } from './networkDefense';
 import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 
@@ -33,6 +34,13 @@ export class WindowsSimulatorEngine {
 
   public getRegistrySnapshot() {
     return JSON.parse(JSON.stringify(this.registryData));
+  }
+
+  public getRegistryValue(key: string, name: string) {
+    const matchingKey = Object.keys(this.registryData).find(candidate => candidate.toUpperCase() === key.toUpperCase());
+    if (!matchingKey) return undefined;
+    const entry = Object.entries(this.registryData[matchingKey]).find(([candidate]) => candidate.toUpperCase() === name.toUpperCase());
+    return entry ? { ...entry[1] } : undefined;
   }
 
   public isLsaPplConfigured(): boolean {
@@ -254,6 +262,30 @@ export class WindowsSimulatorEngine {
     this.rootFS = JSON.parse(JSON.stringify(initialFS));
   }
 
+  public snapshot() {
+    return structuredClone({
+      rootFS: this.rootFS,
+      currentDir: this.currentDir,
+      currentUser: this.currentUser,
+      envVars: this.envVars,
+      firewallBlockedPorts: this.firewallBlockedPorts,
+      processes: this.processes,
+      registryData: this.registryData
+    });
+  }
+
+  public static fromSnapshot(snapshot: ReturnType<WindowsSimulatorEngine['snapshot']>): WindowsSimulatorEngine {
+    const state = structuredClone(snapshot);
+    const engine = new WindowsSimulatorEngine(state.rootFS);
+    engine.currentDir = state.currentDir;
+    engine.currentUser = state.currentUser;
+    engine.envVars = state.envVars;
+    engine.firewallBlockedPorts = state.firewallBlockedPorts;
+    engine.processes = state.processes;
+    engine.registryData = state.registryData;
+    return engine;
+  }
+
   public getCurrentDir(): string {
     return this.currentDir;
   }
@@ -297,6 +329,12 @@ export class WindowsSimulatorEngine {
       return { output: '', exitCode: 0, syscalls: [], edrAlerts: [], forensicLogs: [] };
     }
 
+    const syntax = parseShellSyntax(trimmed, false);
+    if (syntax.error) return { output: syntax.error, exitCode: 2 };
+    if (syntax.redirect || syntax.discardErrors) {
+      return this.executeCompound(syntax);
+    }
+
     const syscalls: SyscallTrace[] = [];
     const edrAlerts: EDRAlert[] = [];
     const forensicLogs: ForensicLogRecord[] = [];
@@ -338,27 +376,6 @@ export class WindowsSimulatorEngine {
       });
     }
 
-    if (trimmed.includes('>')) {
-      const isAppend = trimmed.includes('>>');
-      const parts = trimmed.split(isAppend ? '>>' : '>');
-      const commandPart = parts[0].trim();
-      const targetFilePath = parts[1].trim().replace(/['"]/g, '');
-
-      const cmdExec = this.executeCommandInternal(commandPart, syscalls);
-      const writeResult = this.writeFileInternal(targetFilePath, cmdExec.output, isAppend, syscalls);
-
-      return {
-        output: writeResult.error || '',
-        exitCode: writeResult.error ? 1 : 0,
-        syscalls,
-        edrAlerts,
-        forensicLogs,
-        stateChanges: {
-          filesModified: [targetFilePath]
-        }
-      };
-    }
-
     if (trimmed.toLowerCase().startsWith('start-process powershell -verb runas') || trimmed.toLowerCase() === 'elevate') {
       this.currentUser = 'NT AUTHORITY\\SYSTEM';
       syscalls.push({
@@ -398,6 +415,19 @@ export class WindowsSimulatorEngine {
       });
     }
     return { ...res, syscalls, edrAlerts, forensicLogs };
+  }
+
+  private executeCompound(syntax: ReturnType<typeof parseShellSyntax>): CommandResult {
+    const result = this.execute(syntax.stages[0]);
+    if (result.exitCode !== 0 || !syntax.redirect) return result;
+    const { target, append } = syntax.redirect;
+    const syscalls = [...(result.syscalls ?? [])];
+    const { error } = this.writeFileInternal(target, result.output, append, syscalls);
+    if (error) return { ...result, output: error, exitCode: 1, syscalls };
+    return {
+      ...result, output: '', syscalls,
+      stateChanges: { ...result.stateChanges, filesModified: [...(result.stateChanges?.filesModified ?? []), target] }
+    };
   }
 
   private inspectEDR(cmdLine: string, edrAlerts: EDRAlert[]) {
@@ -1501,6 +1531,10 @@ FLAG{WINLINX_WINDOWS_CANARY_TOKEN_ARMED_2026}`,
 
     if (!parent || parent.type !== 'dir') {
       return { error: `Set-Content : Não foi possível localizar o diretório '${parentPath}'.` };
+    }
+
+    if (!fileName || parent.children?.[fileName]?.type === 'dir') {
+      return { error: `Set-Content: ${pathStr}: O destino é um diretório` };
     }
 
     if (!parent.children) parent.children = {};

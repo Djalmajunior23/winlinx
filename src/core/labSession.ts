@@ -6,6 +6,7 @@ import type { CommandResult, ForensicLogRecord, LabTask, OSType } from '../types
 
 export function createLabSession() {
   return {
+    revision: 0,
     id: globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
     startedAt: new Date().toISOString(),
     linux: new LinuxSimulatorEngine(createInitialLinuxFS()),
@@ -61,27 +62,45 @@ export function verifyLabState(task: LabTask, session: LabSession) {
     return { passed: false, message: 'Conclua a investigação correspondente antes da verificação.' };
   }
 
-  if (task.verify === 'linux-tcp-filtered' || task.verify === 'windows-tcp-filtered') {
-    const isLinux = task.verify === 'linux-tcp-filtered';
-    const port = isLinux ? 4444 : 8089;
-    const engine = isLinux ? session.linux : session.windows;
-    const result = assessInboundTcp(port, engine.getFirewallStatus(), engine.getProcesses());
-    const status = { open: 'aberta', closed: 'fechada', filtered: 'filtrada' };
-    return {
-      passed: result.outcome === 'filtered',
-      message: `Sonda simulada: ${port}/TCP ${status[result.outcome]}. O objetivo exige filtragem de entrada nesta porta.`
-    };
-  }
+  const criterion = task.verify;
+  if (!criterion) return { passed: false, message: 'Esta tarefa não possui um critério de estado.' };
 
-  const passed = task.verify === 'windows-service-path' ? session.windows.hasQuotedUpdaterPath() && session.windows.isUpdaterRunning()
-    : task.verify === 'windows-ppl' ? session.windows.isLsaPplConfigured()
-    : task.verify === 'linux-sudo-policy' && session.linux.requiresSudoPasswordForStudent();
-  const confirmation = task.verify === 'windows-service-path'
-    ? 'Caminho entre aspas e serviço em execução confirmados no simulador.'
-    : 'Configuração do alvo confirmada no simulador.';
-  return {
-    passed,
-    message: passed ? confirmation
-      : 'O estado do alvo ainda não atende ao objetivo. Consulte a dica de correção e verifique novamente.'
-  };
+  switch (criterion.kind) {
+    case 'tcp-filtered': {
+      if (task.targetOS === 'both') return { passed: false, message: 'Selecione um sistema operacional para a sonda.' };
+      const { port } = criterion;
+      const engine = session[task.targetOS];
+      const result = assessInboundTcp(port, engine.getFirewallStatus(), engine.getProcesses());
+      const status = { open: 'aberta', closed: 'fechada', filtered: 'filtrada' };
+      return {
+        passed: result.outcome === 'filtered',
+        message: `Sonda simulada: ${port}/TCP ${status[result.outcome]}. O objetivo exige filtragem de entrada nesta porta.`
+      };
+    }
+    case 'registry-value': {
+      const entry = session.windows.getRegistryValue(criterion.key, criterion.name);
+      const passed = entry?.type === criterion.valueType && entry.value === criterion.value;
+      return {
+        passed,
+        message: passed ? `Valor ${criterion.name} confirmado no Registro simulado.`
+          : `O tipo ou o conteúdo de ${criterion.name} no Registro simulado ainda difere do objetivo.`
+      };
+    }
+    case 'windows-service-path': {
+      const passed = session.windows.hasQuotedUpdaterPath() && session.windows.isUpdaterRunning();
+      return {
+        passed,
+        message: passed ? 'Caminho entre aspas e serviço em execução confirmados no simulador.'
+          : 'Confira as aspas no caminho e se o serviço continua em execução.'
+      };
+    }
+    case 'linux-sudo-policy': {
+      const passed = session.linux.requiresSudoPasswordForStudent();
+      return {
+        passed,
+        message: passed ? 'Configuração do alvo confirmada no simulador.'
+          : 'A política simulada ainda não exige senha para a conta aluno.'
+      };
+    }
+  }
 }

@@ -1,3 +1,4 @@
+import { createLabWorkspaceStore } from './core/labPersistence';
 import { createLabSession, type LabSession } from './core/labSession';
 import type { LabDefinition } from './types/simulator';
 import React, { lazy, Suspense, useState, useEffect } from 'react';
@@ -48,22 +49,35 @@ const HypervisorVBSView = lazy(() => import('./components/HypervisorVBSView').th
 const ZeroTrustKernelGuardView = lazy(() => import('./components/ZeroTrustKernelGuardView').then(module => ({ default: module.ZeroTrustKernelGuardView })));
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [activeLabId, setActiveLabId] = useState<string>(PRACTICAL_LABS[0].id);
+  const [{ workspaceStore, initialWorkspace }] = useState(() => {
+    const workspaceStore = createLabWorkspaceStore();
+    let storage: Storage | null = null;
+    try { storage = window.sessionStorage; } catch { /* The application can run without storage. */ }
+    return { workspaceStore, initialWorkspace: workspaceStore.load(storage, PRACTICAL_LABS) };
+  });
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialWorkspace.openInLabs ? 'labs' : 'dashboard');
+  const [activeLabId, setActiveLabId] = useState(initialWorkspace.activeLabId);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
-
-  const [sessions, setSessions] = useState<Record<string, LabSession>>(() => ({
-    [PRACTICAL_LABS[0].id]: createLabSession()
-  }));
-  const [customLabs, setCustomLabs] = useState<LabDefinition[]>([]);
+  const [sessions, setSessions] = useState<Record<string, LabSession>>(initialWorkspace.sessions);
+  const [customLabs, setCustomLabs] = useState<LabDefinition[]>(initialWorkspace.customLabs);
+  const [sessionRevision, setSessionRevision] = useState(0);
+  const [saveFailed, setSaveFailed] = useState(false);
   const activeSession = sessions[activeLabId] ?? sessions[PRACTICAL_LABS[0].id];
+  const onSessionChange = () => {
+    activeSession.revision++;
+    setSessionRevision(previous => previous + 1);
+  };
   const activeScenario = [...PRACTICAL_LABS, ...customLabs].find(lab => lab.id === activeLabId);
   const { linux: linuxEngine, windows: windowsEngine } = activeSession;
 
   // Estados de telemetria sênior em tempo real
   const [syscalls, setSyscalls] = useState<SyscallTrace[]>([]);
   const [edrAlerts, setEdrAlerts] = useState<EDRAlert[]>([]);
-  const [forensicLogs, setForensicLogs] = useState<ForensicLogRecord[]>([]);
+  const [archivedLogs, setArchivedLogs] = useState(initialWorkspace.archivedLogs);
+  const forensicLogs = [
+    ...Object.values(sessions).flatMap(session => [...session.logs].reverse()),
+    ...archivedLogs
+  ];
   const [posture, setPosture] = useState<OperationalPosture>('blue-team');
 
   // Progresso do aluno com persistência local
@@ -108,6 +122,19 @@ export function App() {
     }
   }, [flagsFound]);
 
+  const openInLabs = activeTab === 'labs';
+  const [saveRetry, setSaveRetry] = useState(0);
+  useEffect(() => {
+    try {
+      workspaceStore.save(sessionStorage, {
+        sessions, customLabs, archivedLogs, activeLabId, openInLabs
+      });
+      setSaveFailed(false);
+    } catch {
+      setSaveFailed(true);
+    }
+  }, [workspaceStore, sessions, customLabs, archivedLogs, activeLabId, openInLabs, sessionRevision, saveRetry]);
+
   const handleRecordSyscalls = (newTraces: SyscallTrace[]) => {
     setSyscalls(prev => [...prev, ...newTraces]);
   };
@@ -123,7 +150,7 @@ export function App() {
   };
 
   const handleRecordForensicLogs = (newLogs: ForensicLogRecord[]) => {
-    setForensicLogs(prev => [...newLogs, ...prev]);
+    setArchivedLogs(prev => [...newLogs, ...prev]);
   };
 
   const handleTaskCompleted = (taskId: string, flag?: string) => {
@@ -169,12 +196,13 @@ export function App() {
   const handleSessionLogs = (logs: ForensicLogRecord[]) => {
     const tagged = logs.map(log => ({ ...log, labId: activeLabId, attemptId: activeSession.id }));
     activeSession.logs.push(...tagged);
-    handleRecordForensicLogs(tagged);
+    onSessionChange();
   };
 
   const handleExecuteRemediation = (os: OSType, command: string) => {
     const engine = os === 'linux' ? linuxEngine : windowsEngine;
     const result = engine.execute(command);
+    onSessionChange();
     if (result.syscalls) handleRecordSyscalls(result.syscalls);
     if (result.edrAlerts) handleRecordEDRAlerts(result.edrAlerts);
     if (result.forensicLogs) handleSessionLogs(result.forensicLogs.map(log => ({ ...log, commandExitCode: result.exitCode })));
@@ -297,7 +325,19 @@ export function App() {
           <ForensicLogsViewer
             currentAttemptId={activeSession.id}
             logs={forensicLogs}
-            onClearLogs={() => setForensicLogs([])}
+            onClearLogs={scope => {
+              if (scope === 'attempt') activeSession.logs.length = 0;
+              else {
+                for (const session of Object.values(sessions)) {
+                  if (session.logs.length) {
+                    session.logs.length = 0;
+                    session.revision++;
+                  }
+                }
+                setArchivedLogs([]);
+              }
+              onSessionChange();
+            }}
           />
         )}
 
@@ -416,9 +456,17 @@ export function App() {
             activeLabId={activeLabId}
             labs={[...PRACTICAL_LABS, ...customLabs]}
             session={activeSession}
+            onRetrySave={saveFailed ? () => setSaveRetry(previous => previous + 1) : undefined}
+            storageNotice={saveFailed ? 'Não foi possível salvar a tentativa nesta aba. Exporte as evidências antes de recarregar.'
+              : initialWorkspace.recoveryFailed ? 'Parte dos dados salvos estava indisponível. As tentativas intactas foram recuperadas.' : undefined}
+            onSessionChange={onSessionChange}
             onOpenTool={setActiveTab}
             onSelectLab={handleSelectLab}
-            onResetSession={() => setSessions(previous => ({ ...previous, [activeLabId]: createLabSession() }))}
+            onResetSession={() => {
+              const previousLogs = [...activeSession.logs].reverse();
+              setArchivedLogs(previous => [...previousLogs, ...previous]);
+              setSessions(previous => ({ ...previous, [activeLabId]: createLabSession() }));
+            }}
             onTaskCompleted={(id, flag) => {
               if (PRACTICAL_LABS.some(lab => lab.id === activeLabId) && !completedTasks.has(id)) {
                 handleTaskCompleted(id, flag);
@@ -428,7 +476,6 @@ export function App() {
             completedTasks={completedTasks}
             onRecordSyscalls={handleRecordSyscalls}
             onRecordEDRAlerts={handleRecordEDRAlerts}
-            onRecordForensicLogs={handleRecordForensicLogs}
           />
         )}
 

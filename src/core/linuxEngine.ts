@@ -1,3 +1,4 @@
+import { parseShellSyntax } from './shellSyntax';
 import { parseTcpPort } from './networkDefense';
 import { CommandResult, FileNode, OSProcess, SyscallTrace, EDRAlert, ForensicLogRecord } from '../types/simulator';
 
@@ -202,6 +203,32 @@ export class LinuxSimulatorEngine {
     this.rootFS = JSON.parse(JSON.stringify(initialFS));
   }
 
+  public snapshot() {
+    return structuredClone({
+      rootFS: this.rootFS,
+      currentDir: this.currentDir,
+      currentUser: this.currentUser,
+      envVars: this.envVars,
+      firewallBlockedPorts: this.firewallBlockedPorts,
+      processes: this.processes,
+      firewallActive: this.firewallActive,
+      pythonSetuidCapability: this.pythonSetuidCapability
+    });
+  }
+
+  public static fromSnapshot(snapshot: ReturnType<LinuxSimulatorEngine['snapshot']>): LinuxSimulatorEngine {
+    const state = structuredClone(snapshot);
+    const engine = new LinuxSimulatorEngine(state.rootFS);
+    engine.currentDir = state.currentDir;
+    engine.currentUser = state.currentUser;
+    engine.envVars = state.envVars;
+    engine.firewallBlockedPorts = state.firewallBlockedPorts;
+    engine.processes = state.processes;
+    engine.firewallActive = state.firewallActive;
+    engine.pythonSetuidCapability = state.pythonSetuidCapability;
+    return engine;
+  }
+
   public getCurrentDir(): string {
     return this.currentDir;
   }
@@ -242,6 +269,12 @@ export class LinuxSimulatorEngine {
     const trimmed = cmdLine.trim();
     if (!trimmed) {
       return { output: '', exitCode: 0, syscalls: [], edrAlerts: [], forensicLogs: [] };
+    }
+
+    const syntax = parseShellSyntax(trimmed, true);
+    if (syntax.error) return { output: syntax.error, exitCode: 2 };
+    if (syntax.redirect || syntax.discardErrors || syntax.stages.length > 1) {
+      return this.executeCompound(syntax);
     }
 
     const syscalls: SyscallTrace[] = [];
@@ -296,27 +329,6 @@ export class LinuxSimulatorEngine {
       });
     }
 
-    if (trimmed.includes('>') && !trimmed.includes('2>')) {
-      const isAppend = trimmed.includes('>>');
-      const parts = trimmed.split(isAppend ? '>>' : '>');
-      const commandPart = parts[0].trim();
-      const targetFilePath = parts[1].trim();
-
-      const cmdExec = this.executeCommandInternal(commandPart, syscalls);
-      const writeResult = this.writeFileInternal(targetFilePath, cmdExec.output, isAppend, syscalls);
-
-      return {
-        output: writeResult.error || '',
-        exitCode: writeResult.error ? 1 : 0,
-        syscalls,
-        edrAlerts,
-        forensicLogs,
-        stateChanges: {
-          filesModified: [targetFilePath]
-        }
-      };
-    }
-
     if (trimmed.startsWith('sudo ')) {
       const rest = trimmed.slice(5).trim();
       syscalls.push({
@@ -352,25 +364,54 @@ export class LinuxSimulatorEngine {
       return { ...res, syscalls, edrAlerts, forensicLogs };
     }
 
-    if (trimmed.includes('|')) {
-      const parts = trimmed.split('|').map(p => p.trim());
-      let currentOutput = '';
-      for (const part of parts) {
-        if (part.startsWith('grep ')) {
-          const search = part.slice(5).trim().replace(/['"]/g, '');
-          const lines = currentOutput.split('\n');
-          currentOutput = lines.filter(l => l.toLowerCase().includes(search.toLowerCase())).join('\n');
-        } else {
-          const res = this.executeCommandInternal(part, syscalls);
-          currentOutput = res.output;
-        }
-      }
-      return { output: currentOutput, exitCode: 0, syscalls, edrAlerts, forensicLogs };
-    }
-
     const execResult = this.executeCommandInternal(trimmed, syscalls);
     recordPermissionsChange(execResult);
     return { ...execResult, syscalls, edrAlerts, forensicLogs };
+  }
+
+  private executeCompound(syntax: ReturnType<typeof parseShellSyntax>): CommandResult {
+    const filters = syntax.stages.slice(1).map(stage => this.parseArgs(stage));
+    if (filters.some(args => args[0] !== 'grep' || args.length !== 2 || args[1].startsWith('-'))) {
+      return { output: 'O pipe do simulador aceita somente grep com um texto literal.', exitCode: 2 };
+    }
+    const syscalls: SyscallTrace[] = [];
+    const edrAlerts: EDRAlert[] = [];
+    const forensicLogs: ForensicLogRecord[] = [];
+    let result: CommandResult = { output: '', exitCode: 0 };
+    let stateChanges: CommandResult['stateChanges'];
+
+    for (const [index, stage] of syntax.stages.entries()) {
+      if (index > 0) {
+        const search = filters[index - 1][1].toLowerCase();
+        const lines = result.output ? result.output.split('\n') : [];
+        const matches = lines.filter(line => line.toLowerCase().includes(search));
+        result = { output: matches.join('\n'), exitCode: matches.length ? 0 : 1 };
+        if (result.exitCode !== 0) break;
+        continue;
+      }
+      result = this.execute(stage);
+      syscalls.push(...(result.syscalls ?? []));
+      edrAlerts.push(...(result.edrAlerts ?? []));
+      forensicLogs.push(...(result.forensicLogs ?? []));
+      if (result.stateChanges) {
+        const files = [...(stateChanges?.filesModified ?? []), ...(result.stateChanges.filesModified ?? [])];
+        stateChanges = { ...stateChanges, ...result.stateChanges, ...(files.length ? { filesModified: files } : {}) };
+      }
+      if (result.exitCode !== 0) break;
+    }
+
+    if (result.exitCode === 0 && syntax.redirect) {
+      const { target, append } = syntax.redirect;
+      const { error } = this.writeFileInternal(target, result.output, append, syscalls);
+      if (error) result = { output: error, exitCode: 1 };
+      else {
+        result = { output: '', exitCode: 0 };
+        stateChanges = { ...stateChanges, filesModified: [...(stateChanges?.filesModified ?? []), target] };
+      }
+    }
+
+    if (syntax.discardErrors && result.exitCode !== 0) result = { output: '', exitCode: result.exitCode };
+    return { ...result, stateChanges, syscalls, edrAlerts, forensicLogs };
   }
 
   private inspectEDR(cmdLine: string, edrAlerts: EDRAlert[]) {
@@ -1509,6 +1550,10 @@ FLAG{WINLINX_LINUX_FALCO_CONTAINER_ALERT_2026}`,
 
     if (!parent || parent.type !== 'dir') {
       return { error: `bash: ${pathStr}: Diretório não encontrado` };
+    }
+
+    if (!fileName || parent.children?.[fileName]?.type === 'dir') {
+      return { error: `bash: ${pathStr}: O destino é um diretório` };
     }
 
     if (!parent.children) parent.children = {};

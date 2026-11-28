@@ -127,7 +127,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         objective: "A porta 4444/TCP deve ficar filtrada.",
         hint: "Execute ufw deny 4444 e verifique o estado.",
         requires: ["task-proc-linux-ps", "task-proc-linux-net"],
-        verify: "linux-tcp-filtered"
+        verify: { kind: 'tcp-filtered', port: 4444 }
       },
       {
         id: "task-proc-win-contain",
@@ -137,7 +137,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         objective: "A porta 8089/TCP deve ficar filtrada.",
         hint: "Execute netsh advfirewall firewall add rule name=\"Block 8089\" dir=in action=block protocol=TCP localport=8089 e verifique o estado.",
         requires: ["task-proc-win-ps"],
-        verify: "windows-tcp-filtered"
+        verify: { kind: 'tcp-filtered', port: 8089 }
       }
     ]
   },
@@ -193,7 +193,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         objective: "O caminho registrado precisa conter o executável original entre aspas.",
         hint: "Execute sc config WinVulnerableUpdater binPath= '\"C:\\Program Files\\Custom App\\service.exe\"' e confira com sc qc e sc query para o mesmo serviço.",
         requires: ["task-persist-win-qc"],
-        verify: "windows-service-path"
+        verify: { kind: 'windows-service-path' }
       }
     ]
   },
@@ -295,7 +295,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         objective: "A regra sudoers deve voltar a exigir senha sem remover a lista de comandos autorizados.",
         hint: "No simulador, execute sudo visudo --require-password aluno e confira o arquivo /etc/sudoers.",
         requires: ["task-hard-linux-sudoers"],
-        verify: "linux-sudo-policy"
+        verify: { kind: 'linux-sudo-policy' }
       },
       {
         id: "task-hard-win-ppl",
@@ -305,7 +305,7 @@ export const PRACTICAL_LABS: LabDefinition[] = [
         objective: "RunAsPPL deve estar configurado como 1 no Registro simulado.",
         hint: "Execute reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\" /v RunAsPPL /t REG_DWORD /d 1 /f.",
         requires: ["task-hard-win-whoami"],
-        verify: "windows-ppl"
+        verify: { kind: 'registry-value', key: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa', name: 'RunAsPPL', valueType: 'REG_DWORD', value: 1 }
       }
     ]
   }

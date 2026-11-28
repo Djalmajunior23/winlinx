@@ -1,3 +1,4 @@
+import { createLabWorkspaceStore } from '../src/core/labPersistence';
 import { readCustomLabPackage } from '../src/core/customLabPackage';
 import { createLabSession, incorrectEvidence, matchesLabObservation, verifyLabState } from '../src/core/labSession';
 import { PRACTICAL_LABS } from '../src/data/labs';
@@ -479,7 +480,7 @@ test('Tentativas mantêm máquinas, observações e evidências isoladas', () =>
   const first = createLabSession();
   const second = createLabSession();
   const lab = PRACTICAL_LABS.find(item => item.id === 'lab-processes-memory')!;
-  const task = lab.tasks.find(item => item.verify === 'linux-tcp-filtered')!;
+  const task = lab.tasks.find(item => item.verify?.kind === 'tcp-filtered' && item.targetOS === 'linux')!;
   for (const required of task.requires ?? []) first.completed.add(required);
   assert.equal(verifyLabState(task, first).passed, false);
   first.linux.execute('ufw deny 4445');
@@ -540,4 +541,153 @@ test('Fontes de evidência dos Labs 02 a 05 correspondem aos registros da tentat
       }
     }
   }
+});
+
+function memoryStorage() {
+  const records = new Map<string, string>();
+  const writes: string[] = [];
+  return {
+    records, writes,
+    getItem: (key: string) => records.get(key) ?? null,
+    setItem(key: string, value: string) { records.set(key, value); writes.push(key); },
+    removeItem: (key: string) => { records.delete(key); }
+  };
+}
+
+test('A restauração preserva as máquinas e as evidências sem compartilhar referências', () => {
+  const storage = memoryStorage();
+  const store = createLabWorkspaceStore();
+  const workspace = store.load(storage, PRACTICAL_LABS);
+  const session = workspace.sessions[workspace.activeLabId];
+  const taskId = PRACTICAL_LABS[0].tasks[0].id;
+  session.completed.add(taskId);
+  session.observed.add(taskId);
+  session.answers.set(taskId, ['evidência']);
+  const result = session.linux.execute('sudo chmod -s /bin/find');
+  session.logs.push(...(result.forensicLogs ?? []));
+  session.linux.execute('ufw deny 4444');
+  session.windows.execute('reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa" /v RunAsPPL /t REG_DWORD /d 1 /f');
+
+  store.save(storage, workspace);
+  const restored = createLabWorkspaceStore().load(storage, PRACTICAL_LABS).sessions[workspace.activeLabId];
+  assert.equal(restored.id, session.id);
+  assert.equal(restored.linux.hasFindSetuid(), false);
+  assert.deepEqual(restored.linux.getFirewallStatus().blockedPorts, [4444]);
+  assert.ok(restored.windows.isLsaPplConfigured());
+  assert.deepEqual(restored.logs, JSON.parse(JSON.stringify(session.logs)));
+  assert.ok(restored.completed.has(taskId));
+  assert.ok(restored.observed.has(taskId));
+  assert.deepEqual(restored.answers.get(taskId), ['evidência']);
+  restored.linux.execute('ufw deny 4445');
+  assert.deepEqual(session.linux.getFirewallStatus().blockedPorts, [4444]);
+  storage.setItem('winlinx_lab_workspace_v2', '{"version":99}');
+  assert.ok(createLabWorkspaceStore().load(storage, PRACTICAL_LABS).recoveryFailed);
+});
+
+test('Comandos compostos preservam falhas, aspas e efeitos reais de gravação', () => {
+  const linux = new LinuxSimulatorEngine(createInitialLinuxFS());
+  const windows = new WindowsSimulatorEngine(createInitialWindowsFS());
+  for (const engine of [linux, windows]) {
+    assert.equal(engine.execute('echo "A | B > C"').output, 'A | B > C');
+    assert.equal(engine.execute('echo primeiro > "arquivo de notas.txt"').exitCode, 0);
+    assert.equal(engine.execute('echo segundo >> "arquivo de notas.txt"').exitCode, 0);
+    const failure = engine.execute('winlinx-comando-inexistente > "arquivo de notas.txt"');
+    assert.notEqual(failure.exitCode, 0);
+    assert.equal(failure.stateChanges?.filesModified, undefined);
+    const original = engine.execute('cat "arquivo de notas.txt"');
+    assert.equal(original.output.replace(/\r/g, ''), 'primeiro\nsegundo');
+    assert.equal(engine.execute('echo texto >').exitCode, 2);
+    assert.equal(engine.execute('echo "texto').exitCode, 2);
+  }
+  assert.equal(linux.execute('echo texto > /').exitCode, 1);
+  assert.notEqual(linux.execute('winlinx-comando-inexistente | grep texto').exitCode, 0);
+  assert.equal(linux.execute('echo texto | grep ausente').exitCode, 1);
+  assert.equal(linux.execute('echo "A | B" | grep "A |"').output, 'A | B');
+  const silent = linux.execute('winlinx-comando-inexistente 2>/dev/null');
+  assert.equal(silent.output, '');
+  assert.notEqual(silent.exitCode, 0);
+});
+
+test('Registros arquivados sobrevivem à recarga sem se misturar à nova tentativa', () => {
+  const storage = memoryStorage();
+  const store = createLabWorkspaceStore();
+  const workspace = store.load(storage, PRACTICAL_LABS);
+  const current = workspace.sessions[workspace.activeLabId];
+  const event = current.linux.execute('whoami').forensicLogs![0];
+  workspace.archivedLogs.push({ ...event, attemptId: current.id, labId: workspace.activeLabId });
+  workspace.sessions[workspace.activeLabId] = createLabSession();
+  store.save(storage, workspace);
+  const restored = createLabWorkspaceStore().load(storage, PRACTICAL_LABS);
+  assert.deepEqual(restored.sessions[workspace.activeLabId].logs, []);
+  assert.equal(restored.archivedLogs[0].attemptId, current.id);
+});
+
+test('Salvamento incremental regrava só a tentativa alterada e recupera as demais após corrupção', () => {
+  const storage = memoryStorage();
+  const store = createLabWorkspaceStore();
+  const workspace = store.load(storage, PRACTICAL_LABS);
+  const [first, second] = PRACTICAL_LABS;
+  const other = createLabSession();
+  workspace.sessions[second.id] = other;
+  store.save(storage, workspace);
+  storage.writes.length = 0;
+  const active = workspace.sessions[first.id];
+  active.linux.execute('ufw deny 4444');
+  active.revision++;
+  store.save(storage, workspace);
+  assert.deepEqual(storage.writes, ['winlinx_lab_workspace_v2:lab:' + first.id]);
+
+  storage.setItem('winlinx_lab_workspace_v2:lab:' + second.id, '{inválido');
+  const recovered = createLabWorkspaceStore().load(storage, PRACTICAL_LABS);
+  assert.ok(recovered.recoveryFailed);
+  assert.equal(recovered.sessions[first.id].id, active.id);
+  assert.deepEqual(recovered.sessions[first.id].linux.getFirewallStatus().blockedPorts, [4444]);
+  assert.notEqual(recovered.sessions[second.id].id, other.id);
+});
+
+test('Migração conserva a cópia antiga até concluir e pode ser repetida após falha', () => {
+  const storage = memoryStorage();
+  const key = 'winlinx_lab_workspace_v1';
+  const first = PRACTICAL_LABS[0].id;
+  const previous = createLabSession();
+  storage.setItem(key, JSON.stringify({
+    version: 1, activeLabId: first, customLabs: [], sessions: {
+      [first]: { id: previous.id, startedAt: previous.startedAt, linux: previous.linux.snapshot(),
+        windows: previous.windows.snapshot(), completed: [], observed: [], answers: [], logs: [] }
+    }
+  }));
+  const store = createLabWorkspaceStore();
+  const migrated = store.load(storage, PRACTICAL_LABS);
+  assert.equal(migrated.sessions[first].id, previous.id);
+  const broken = { ...storage, setItem(key: string, value: string) {
+    if (key === 'winlinx_lab_workspace_v2') throw new Error('armazenamento cheio');
+    storage.setItem(key, value);
+  } };
+  assert.throws(() => store.save(broken, migrated), /cheio/);
+  assert.ok(storage.getItem(key));
+  store.save(storage, migrated);
+  assert.equal(storage.getItem(key), null);
+  assert.equal(createLabWorkspaceStore().load(storage, PRACTICAL_LABS).sessions[first].id, previous.id);
+});
+
+test('Autor e catálogo usam critérios de estado tipados para porta e Registro', () => {
+  const key = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa';
+  const pack = (tasks: unknown[]) => JSON.stringify({
+    version: 1, lab: { title: 'Estado', description: 'Validação', difficulty: 'Iniciante', tasks }
+  });
+  const tcp = { title: 'Filtrar porta', targetOS: 'linux', verify: { kind: 'tcp-filtered', port: 9443 } };
+  const reg = { title: 'Proteger LSA', targetOS: 'windows',
+    verify: { kind: 'registry-value', key: key.toLowerCase(), name: 'runasppl', valueType: 'REG_DWORD', value: 1 } };
+  const [tcpTask, regTask] = readCustomLabPackage(pack([tcp, reg])).tasks;
+  const session = createLabSession();
+  assert.equal(verifyLabState(tcpTask, session).passed, false);
+  session.linux.execute('ufw deny 9443');
+  assert.equal(verifyLabState(tcpTask, session).passed, true);
+  session.windows.execute(`reg add "${key}" /v RunAsPPL /t REG_SZ /d 1 /f`);
+  assert.equal(verifyLabState(regTask, session).passed, false);
+  session.windows.execute(`reg add "${key}" /v RunAsPPL /t REG_DWORD /d 1 /f`);
+  assert.equal(verifyLabState(regTask, session).passed, true);
+  assert.throws(() => readCustomLabPackage(pack([{ ...tcp, verify: { kind: 'tcp-filtered', port: 65536 } }])), /Critério/);
+  assert.throws(() => readCustomLabPackage(pack([{ ...reg, targetOS: 'linux' }])), /Critério/);
+  assert.throws(() => readCustomLabPackage(pack([{ ...tcp, validationCommand: 'pwd' }])), /Escolha/);
 });

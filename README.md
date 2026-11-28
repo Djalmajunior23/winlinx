@@ -295,12 +295,16 @@ ao receber cada mensagem.
 
 ### Tentativas e evidências dos laboratórios
 
-Cada laboratório tem sua própria sessão de máquinas simuladas. A tentativa
-continua disponível ao navegar entre telas no mesmo carregamento da aplicação.
-O botão **Reiniciar máquinas** abre uma nova tentativa e mantém o histórico
-de tarefas concluídas. O histórico permanece no navegador ao recarregar a página.
-Exporte o dossiê da tentativa antes de fechar ou recarregar para conservar
-os registros gerados e os achados enviados.
+Cada laboratório tem sua própria sessão de máquinas simuladas. Ao recarregar
+a mesma aba, o WinLinx retoma as máquinas, os achados e os registros salvos
+nessa aba. Cada tentativa é gravada separadamente. Se um registro estiver
+corrompido, as demais tentativas são recuperadas. Se o armazenamento falhar,
+o laboratório avisa e oferece uma nova tentativa de salvamento. O botão **Reiniciar máquinas** abre uma nova tentativa e mantém
+o histórico de tarefas concluídas. O histórico usa armazenamento do navegador.
+Para guardar as evidências fora da aba, exporte o dossiê da tentativa.
+Após reiniciar as máquinas, os registros da tentativa anterior permanecem
+no escopo **Todos os registros gerados**. A limpeza da tentativa atual
+preserva os outros registros.
 
 Nos Labs 02 a 05, consulte as fontes indicadas e registre os campos solicitados.
 O Lab 02 verifica o efeito do bloqueio por meio de sondas TCP simuladas. Os
@@ -313,3 +317,10 @@ seu progresso fica fora do histórico dos laboratórios oficiais.
 Para rodar o teste de navegador após o build, execute
 `node tests/labs.browser.mjs`. Defina `WINLINX_CHROME` caso o executável
 Chromium ou Chrome tenha outro nome.
+
+No Lab Builder, **Comando e evidência** verifica a execução e pode solicitar
+uma resposta do aluno. **Porta TCP filtrada** verifica a porta escolhida no
+firewall do cenário. **Valor do Registro Windows** verifica a chave, o nome,
+o tipo e o conteúdo configurado no Registro simulado. Esses critérios também
+podem ser usados nos pacotes JSON versão 1, que continuam aceitando as tarefas
+de comando existentes.

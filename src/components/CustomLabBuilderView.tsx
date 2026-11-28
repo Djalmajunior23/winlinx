@@ -14,7 +14,7 @@ import {
   HelpCircle,
   Copy
 } from 'lucide-react';
-import { OSType, LabDefinition, LabTask } from '../types/simulator';
+import { OSType, LabDefinition, LabStateCriterion, LabTask } from '../types/simulator';
 
 interface CustomLabBuilderViewProps {
   onLoadCustomLab?: (lab: LabDefinition) => void;
@@ -41,14 +41,31 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
   const [evidenceLabel, setEvidenceLabel] = useState('');
   const [evidenceValue, setEvidenceValue] = useState('');
 
-  const currentTask = () => ({
-    title: taskTitle, targetOS, validationCommand: validationCmd,
-    expectedOutputSubstring: expectedOutput.trim() || undefined,
-    flagReward: flagReward.trim() || undefined,
-    evidence: evidenceLabel.trim() || evidenceValue.trim()
-      ? [{ label: evidenceLabel, expected: evidenceValue }]
-      : undefined
-  });
+  const [mode, setMode] = useState<'command' | 'tcp-filtered' | 'registry-value'>('command');
+  const [port, setPort] = useState('4444');
+  const [registryKey, setRegistryKey] = useState('HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa');
+  const [registryName, setRegistryName] = useState('RunAsPPL');
+  const [registryValue, setRegistryValue] = useState('1');
+  const [registryType, setRegistryType] = useState<'REG_DWORD' | 'REG_SZ'>('REG_DWORD');
+
+  const currentTask = (): Partial<LabTask> => {
+    const base = { title: taskTitle, targetOS, flagReward: flagReward.trim() || undefined };
+    if (mode === 'command') {
+      return {
+        ...base, validationCommand: validationCmd,
+        expectedOutputSubstring: expectedOutput.trim() || undefined,
+        evidence: evidenceLabel.trim() || evidenceValue.trim()
+          ? [{ label: evidenceLabel, expected: evidenceValue }]
+          : undefined
+      };
+    }
+    const verify: LabStateCriterion = mode === 'tcp-filtered'
+      ? { kind: mode, port: Number(port) }
+      : registryType === 'REG_DWORD'
+        ? { kind: mode, key: registryKey, name: registryName, valueType: registryType, value: registryValue.trim() ? Number(registryValue) : NaN }
+        : { kind: mode, key: registryKey, name: registryName, valueType: registryType, value: registryValue };
+    return { ...base, verify };
+  };
 
   const makePackage = (tasks: Partial<LabTask>[]) => JSON.stringify({
     version: 1,
@@ -57,7 +74,7 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
 
   const handleGenerateJSON = () => {
     const draft = currentTask();
-    const hasDraft = draft.title.trim() || draft.validationCommand.trim() || draft.expectedOutputSubstring || draft.flagReward || draft.evidence;
+    const hasDraft = draft.title?.trim() || draft.validationCommand?.trim() || draft.verify || draft.expectedOutputSubstring || draft.flagReward || draft.evidence;
     const source = makePackage(hasDraft ? [...additionalTasks, draft] : additionalTasks);
     try {
       readCustomLabPackage(source);
@@ -152,12 +169,13 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
                 <label className="text-slate-400 font-medium block mb-1">Sistema Operacional Alvo:</label>
                 <select
                   value={targetOS}
-                  onChange={e => setTargetOS(e.target.value as any)}
+                  disabled={mode === 'registry-value'}
+                  onChange={e => setTargetOS(e.target.value as LabTask['targetOS'])}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-purple-500"
                 >
                   <option value="linux">Linux (Bash)</option>
                   <option value="windows">Windows (PowerShell)</option>
-                  <option value="both">Ambos (Comparativo)</option>
+                  <option value="both" disabled={mode !== 'command'}>Ambos (Comparativo)</option>
                 </select>
               </div>
             </div>
@@ -175,16 +193,52 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
                 />
               </div>
 
+              <label className="block text-slate-300">
+                Tipo de avaliação
+                <select className="block w-full rounded border border-slate-800 bg-slate-950 p-2" value={mode} onChange={event => {
+                  const next = event.target.value as typeof mode;
+                  setMode(next);
+                  if (next === 'registry-value') setTargetOS('windows');
+                  if (next === 'tcp-filtered' && targetOS === 'both') setTargetOS('linux');
+                }}>
+                  <option value="command">Comando e evidência</option>
+                  <option value="tcp-filtered">Porta TCP filtrada</option>
+                  <option value="registry-value">Valor do Registro Windows</option>
+                </select>
+              </label>
+              {mode === 'tcp-filtered' && (
+                <label className="block text-slate-300">Porta TCP
+                  <input type="number" min="1" max="65535" className="block rounded border border-slate-800 bg-slate-950 p-2" value={port} onChange={event => setPort(event.target.value)} />
+                </label>
+              )}
+              {mode === 'registry-value' && (
+                <div className="grid gap-2 sm:grid-cols-2 text-slate-300">
+                  <label>Chave do Registro
+                    <input className="block w-full rounded border border-slate-800 bg-slate-950 p-2" value={registryKey} onChange={event => setRegistryKey(event.target.value)} />
+                  </label>
+                  <label>Nome do valor
+                    <input className="block w-full rounded border border-slate-800 bg-slate-950 p-2" value={registryName} onChange={event => setRegistryName(event.target.value)} />
+                  </label>
+                  <label>Tipo do valor
+                    <select className="block w-full rounded border border-slate-800 bg-slate-950 p-2" value={registryType} onChange={event => setRegistryType(event.target.value as typeof registryType)}>
+                      <option>REG_DWORD</option><option>REG_SZ</option>
+                    </select>
+                  </label>
+                  <label>Valor esperado
+                    <input className="block w-full rounded border border-slate-800 bg-slate-950 p-2" value={registryValue} onChange={event => setRegistryValue(event.target.value)} />
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-400 font-medium block mb-1">Comando de Validação (ou prefixo):</label>
+                {mode === 'command' && <div>
+                  <label className="text-slate-400 font-medium block mb-1">Comando exato de validação</label>
                   <input
                     type="text"
                     value={validationCmd}
                     onChange={e => setValidationCmd(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-cyan-300 focus:outline-none focus:border-purple-500"
                   />
-                </div>
+                </div>}
 
                 <div>
                   <label className="text-slate-400 font-medium block mb-1">Flag de Recompensa:</label>
@@ -198,14 +252,17 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 text-xs">
+            {mode === 'command' && <div className="grid gap-2 sm:grid-cols-2 text-xs">
+              <label>Trecho esperado na saída (opcional)
+                <input className="w-full bg-slate-950 border border-slate-800 rounded p-2" value={expectedOutput} onChange={event => setExpectedOutput(event.target.value)} />
+              </label>
               <label>Campo de evidência (opcional)
                 <input className="w-full bg-slate-950 border border-slate-800 rounded p-2" value={evidenceLabel} onChange={event => setEvidenceLabel(event.target.value)} />
               </label>
               <label>Resposta esperada
                 <input className="w-full bg-slate-950 border border-slate-800 rounded p-2" value={evidenceValue} onChange={event => setEvidenceValue(event.target.value)} />
               </label>
-            </div>
+            </div>}
             {additionalTasks.map((task, index) => (
               <div key={index} className="flex justify-between text-xs">
                 <span>{index + 1}. {task.title}</span>
@@ -221,6 +278,7 @@ export const CustomLabBuilderView: React.FC<CustomLabBuilderViewProps> = ({
                 setFlagReward('');
                 setEvidenceLabel('');
                 setEvidenceValue('');
+                setMode('command');
               }}>Adicionar tarefa e editar a próxima</button>
             <button
               onClick={handleGenerateJSON}

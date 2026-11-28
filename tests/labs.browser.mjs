@@ -108,6 +108,18 @@ try {
     await evaluate(`document.querySelectorAll('form').forEach((form, index) => form.dataset.evidenceTest = index)`);
   }
 
+  async function reload() {
+    await evaluate('window.winlinxPreviousDocument = true');
+    await send('Page.reload');
+    await waitFor(async () => {
+      try {
+        return await evaluate('!window.winlinxPreviousDocument && document.readyState === "complete"');
+      } catch {
+        return false;
+      }
+    }, 'nova página após recarregar');
+  }
+
   await send('Runtime.enable');
   await send('Page.navigate', {url: origin});
   await click('Labs');
@@ -143,7 +155,14 @@ try {
   await text('Tentativa atual: 4/5');
   await click('Verificar estado do alvo', 'Tarefa 5');
   await text('8089/TCP aberta');
-  await terminal('netsh advfirewall firewall add rule name="Block 8089" dir=in action=block protocol=TCP localport=8089', 'Windows');
+  await click('Firewall da sessão');
+  await click('Windows (WFP / netsh)');
+  await click('Testar Porta');
+  await text('8089/TCP · Aberta');
+  await click('Bloquear entrada TCP no simulador');
+  await click('Testar Porta');
+  await text('8089/TCP · Filtrada');
+  await click('Labs');
   await click('Verificar estado do alvo', 'Tarefa 5');
   await text('Tentativa atual: 5/5');
 
@@ -162,9 +181,16 @@ try {
   assert.ok(exported.logs.some(log => log.details.includes('4444/TCP aberta')));
   assert.ok(exported.logs.some(log => log.details.includes('4444/TCP filtrada')));
   assert.ok(exported.logs.every(log => log.attemptId === exported.attemptId));
-  await click('Dashboard de Módulos');
+  await reload();
+  await text('Tentativa atual: 5/5');
+  await terminal('ufw status');
+  await text('4444/tcp                     DENY');
+  await click('Logs forenses');
+  await click('Linux Auditd / Auth');
+  await text('4444/TCP filtrada');
   await click('Labs');
   await text('Tentativa atual: 5/5');
+
   await click('Lab 03');
   await text('Tentativa atual: 0/3');
   await terminal('ufw status');
@@ -173,13 +199,41 @@ try {
   await text('Tentativa atual: 5/5');
   await click('Reiniciar máquinas');
   await text('Histórico: 5/5 · Tentativa atual: 0/5');
+  await reload();
+  await text('Histórico: 5/5 · Tentativa atual: 0/5');
+  await terminal('echo registro-nova-tentativa');
+  await click('Logs forenses');
+  await click('Linux Auditd / Auth');
+  await text('registro-nova-tentativa');
+  await click('Limpar tentativa atual');
+  await text('Nenhuma evidência corresponde aos filtros.');
+  await evaluate(`(() => {
+    const scope = [...document.querySelectorAll('select')].find(element => element.querySelector('option[value="generated"]'));
+    scope.value = 'generated';
+    scope.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await text('4444/TCP filtrada');
+  assert.equal(await evaluate(`document.body.innerText.includes('registro-nova-tentativa')`), false);
   await click('Dashboard de Módulos');
   await click('Lab Builder (CTF)');
+  await waitFor(() => evaluate(`[...document.querySelectorAll('select')].some(select => select.querySelector('option[value="tcp-filtered"]'))`), 'critério no construtor');
+  await evaluate(`(() => {
+    const select = [...document.querySelectorAll('select')].find(element => element.querySelector('option[value="tcp-filtered"]'));
+    select.value = 'tcp-filtered';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await click('Compilar e Exportar Pacote de Laboratório');
+  const generated = await evaluate('JSON.parse(document.querySelector("#lab-package").value)');
+  assert.deepEqual(generated.lab.tasks[0].verify, { kind: 'tcp-filtered', port: 4444 });
+  const registryKey = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa';
   const packageData = {
     version: 1,
     lab: { title: 'Cenário importado', description: 'Validação no navegador', difficulty: 'Iniciante', tasks: [
       {title: 'Consultar identidade', targetOS: 'linux', validationCommand: 'whoami'},
-      {title: 'Consultar diretório', targetOS: 'linux', validationCommand: 'pwd'}
+      {title: 'Consultar diretório', targetOS: 'linux', validationCommand: 'pwd'},
+      {title: 'Filtrar porta escolhida', targetOS: 'linux', verify: { kind: 'tcp-filtered', port: 9443 }},
+      {title: 'Confirmar configuração Windows', targetOS: 'windows',
+        verify: { kind: 'registry-value', key: registryKey, name: 'RunAsPPL', valueType: 'REG_DWORD', value: 1 }}
     ] }
   };
   await fill('#lab-package', '{');
@@ -190,7 +244,44 @@ try {
   await text('Cenário importado');
   await terminal('whoami');
   await terminal('pwd');
-  await text('Tentativa atual: 2/2');
+  await text('Tentativa atual: 2/4');
+  await click('Verificar estado do alvo', 'Filtrar porta escolhida');
+  await text('9443/TCP fechada');
+  await terminal('ufw deny 9443');
+  await click('Verificar estado do alvo', 'Filtrar porta escolhida');
+  await text('Tentativa atual: 3/4');
+  await click('Verificar estado do alvo', 'Confirmar configuração Windows');
+  await text('ainda difere do objetivo');
+  await click('Windows Host (PowerShell)');
+  await terminal(`reg add "${registryKey}" /v RunAsPPL /t REG_DWORD /d 1 /f`, 'Windows');
+  await click('Verificar estado do alvo', 'Confirmar configuração Windows');
+  await text('Tentativa atual: 4/4');
+  await reload();
+  await text('Cenário importado');
+  await text('Tentativa atual: 4/4');
+
+  await evaluate(`(() => {
+    const store = Storage.prototype.setItem;
+    window.restoreWinlinxStorage = () => { Storage.prototype.setItem = store; };
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith('winlinx_lab_workspace_v2:lab:')) throw new DOMException('Teste', 'QuotaExceededError');
+      return store.call(this, key, value);
+    };
+  })()`);
+  await terminal('echo registro-salvo-apos-repetir');
+  await text('Não foi possível salvar a tentativa nesta aba');
+  await evaluate('window.restoreWinlinxStorage()');
+  await click('Tentar salvar novamente');
+  await waitFor(() => evaluate(`!document.body.innerText.includes('Não foi possível salvar a tentativa nesta aba')`), 'salvamento repetido');
+
+  await evaluate(`sessionStorage.setItem('winlinx_lab_workspace_v2:lab:lab-permissions-dacl', '{inválido')`);
+  await reload();
+  await text('Parte dos dados salvos estava indisponível');
+  await text('Cenário importado');
+  await text('Tentativa atual: 4/4');
+  await click('Logs forenses');
+  await click('Linux Auditd / Auth');
+  await text('registro-salvo-apos-repetir');
   assert.deepEqual(errors, []);
   console.log('Lab 02: evidência, rejeição, contenção, isolamento, retomada e reset verificados.');
 } finally {

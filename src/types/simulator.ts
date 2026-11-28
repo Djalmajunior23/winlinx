@@ -144,6 +144,13 @@ export interface KernelArchitectureComponent {
   };
 }
 
+export type LabStateCriterion =
+  | { kind: 'tcp-filtered'; port: number }
+  | { kind: 'registry-value'; key: string; name: string; valueType: 'REG_DWORD'; value: number }
+  | { kind: 'registry-value'; key: string; name: string; valueType: 'REG_SZ' | 'REG_EXPAND_SZ'; value: string }
+  | { kind: 'windows-service-path' }
+  | { kind: 'linux-sudo-policy' };
+
 export interface LabTask {
   id: string;
   title: string;
@@ -156,7 +163,7 @@ export interface LabTask {
   alternativeCommands?: string[];
   evidence?: { label: string; expected: string }[];
   requires?: string[];
-  verify?: 'linux-tcp-filtered' | 'windows-tcp-filtered' | 'windows-service-path' | 'windows-ppl' | 'linux-sudo-policy';
+  verify?: LabStateCriterion;
   expectedOutputSubstring?: string;
   flagReward?: string;
   isCompleted?: boolean;

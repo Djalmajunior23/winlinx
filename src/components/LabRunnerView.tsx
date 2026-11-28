@@ -19,6 +19,9 @@ interface LabRunnerViewProps {
   activeLabId: string;
   labs: LabDefinition[];
   session: LabSession;
+  storageNotice?: string;
+  onRetrySave?: () => void;
+  onSessionChange: () => void;
   onOpenTool: (tab: 'firewall' | 'forensics' | 'security-audit') => void;
   onSelectLab: (id: string) => void;
   onResetSession: () => void;
@@ -27,12 +30,11 @@ interface LabRunnerViewProps {
   completedTasks: Set<string>;
   onRecordSyscalls?: (traces: SyscallTrace[]) => void;
   onRecordEDRAlerts?: (alerts: EDRAlert[]) => void;
-  onRecordForensicLogs?: (logs: ForensicLogRecord[]) => void;
 }
 
 export function LabRunnerView({
-  activeLabId, labs, session, onOpenTool, onSelectLab, onResetSession, onTaskCompleted, onLabFinished,
-  completedTasks, onRecordSyscalls, onRecordEDRAlerts, onRecordForensicLogs
+  activeLabId, labs, session, storageNotice, onRetrySave, onSessionChange, onOpenTool, onSelectLab, onResetSession, onTaskCompleted, onLabFinished,
+  completedTasks, onRecordSyscalls, onRecordEDRAlerts
 }: LabRunnerViewProps) {
   const currentLab = labs.find(lab => lab.id === activeLabId) ?? labs[0];
   const [activeOS, setActiveOS] = useState<OSType>(currentLab.tasks[0]?.targetOS === 'windows' ? 'windows' : 'linux');
@@ -44,12 +46,13 @@ export function LabRunnerView({
   const recordLogs = (logs: ForensicLogRecord[]) => {
     const tagged = logs.map(log => ({ ...log, labId: currentLab.id, attemptId: session.id }));
     session.logs.push(...tagged);
-    onRecordForensicLogs?.(tagged);
+    onSessionChange();
   };
 
   const completeTask = (task: LabTask, note: string) => {
     if (session.completed.has(task.id)) return;
     session.completed.add(task.id);
+    onSessionChange();
     setFeedback(note);
     onTaskCompleted(task.id, task.flagReward);
     if (currentLab.tasks.every(item => session.completed.has(item.id))) {
@@ -61,6 +64,7 @@ export function LabRunnerView({
   const handleExecuteCommand = (command: string) => {
     const engine = activeOS === 'linux' ? linuxEngine : windowsEngine;
     const result = engine.execute(command);
+    onSessionChange();
     refresh(value => value + 1);
     if (result.syscalls) onRecordSyscalls?.(result.syscalls);
     if (result.edrAlerts) onRecordEDRAlerts?.(result.edrAlerts);
@@ -219,6 +223,12 @@ export function LabRunnerView({
                 <button type="button" onClick={() => onOpenTool('security-audit')}>Auditoria da sessão</button>
                 <button type="button" onClick={() => onOpenTool('forensics')}>Logs forenses</button>
               </div>
+              {storageNotice && (
+                <div className="space-y-1 text-xs text-amber-300">
+                  <p role="alert">{storageNotice}</p>
+                  {onRetrySave && <button type="button" onClick={onRetrySave} className="underline">Tentar salvar novamente</button>}
+                </div>
+              )}
               <p role="status" className="text-xs text-slate-300">{feedback}</p>
               {currentLab.tasks.map((task) => {
                 const isCompleted = session.completed.has(task.id);

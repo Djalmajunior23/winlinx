@@ -21,7 +21,7 @@ import {
 interface ForensicLogsViewerProps {
   logs: ForensicLogRecord[];
   currentAttemptId?: string;
-  onClearLogs?: () => void;
+  onClearLogs?: (scope: 'attempt' | 'generated') => void;
 }
 
 const DEFAULT_INITIAL_LOGS: ForensicLogRecord[] = [
@@ -255,13 +255,14 @@ export const ForensicLogsViewer: React.FC<ForensicLogsViewerProps> = ({
               <span>Exportar Dossiê (JSON)</span>
             </button>
 
-            {onClearLogs && (
+            {onClearLogs && scope !== 'examples' && (
               <button
-                onClick={onClearLogs}
+                onClick={() => onClearLogs(scope)}
+                disabled={scopedLogs.length === 0}
                 className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-semibold border border-red-800/60 transition-all"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Limpar</span>
+                <span>{scope === 'attempt' ? 'Limpar tentativa atual' : 'Limpar todos os registros gerados'}</span>
               </button>
             )}
           </div>
